@@ -26,10 +26,10 @@ export function MapView() {
   ]
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="p-3 sm:p-6 animate-fade-in">
       {/* Header */}
-      <div className="flex justify-between items-end mb-5">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 sm:mb-5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div>
             <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
               {lab.name}
@@ -74,7 +74,7 @@ export function MapView() {
         </div>
 
         {/* Filter pills */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className={cn('text-[11px] mr-1', dark ? 'text-slate-600' : 'text-slate-400')}>
             Filter
           </span>
@@ -103,8 +103,8 @@ export function MapView() {
         </div>
       </div>
 
-      {/* Floor plan — drag & drop canvas */}
-      <div className="overflow-x-auto pb-2">
+      {/* Floor plan — drag & drop canvas, scrollable horizontally on mobile */}
+      <div className="overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
         <DragDropFloorPlan
           labId={activeLab}
           labName={lab.name}
@@ -116,7 +116,7 @@ export function MapView() {
       </div>
 
       {/* Condition legend */}
-      <div className="flex items-center gap-4 mt-4">
+      <div className="flex items-center gap-3 sm:gap-4 mt-4 flex-wrap">
         <span className={cn('text-[11px]', dark ? 'text-slate-600' : 'text-slate-400')}>
           Condition:
         </span>

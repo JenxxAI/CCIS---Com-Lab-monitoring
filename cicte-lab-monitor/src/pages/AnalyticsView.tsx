@@ -52,8 +52,8 @@ export function AnalyticsView() {
   )
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-5">
+    <div className="p-3 sm:p-6 animate-fade-in">
+      <div className="mb-4 sm:mb-5">
         <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
           Analytics
         </h1>
@@ -63,7 +63,7 @@ export function AnalyticsView() {
       </div>
 
       {/* Top stat cards */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
         {[
           { label: 'Total PCs',    val: g.total,       color: textMain,   sub: `${LABS.length} labs`                          },
           { label: 'Available',    val: g.available,   color: '#22c55e',  sub: `${Math.round(g.available/g.total*100)}% free`  },
@@ -85,9 +85,9 @@ export function AnalyticsView() {
       </div>
 
       {/* Per-lab bar chart + condition pie side by side */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
         {/* Bar chart — occupancy per lab */}
-        <div className={cn(card, 'col-span-2')}>
+        <div className={cn(card, 'lg:col-span-2')}>
           <div className={cn('text-[13px] font-semibold mb-4', dark ? 'text-slate-200' : 'text-slate-800')}>
             Occupancy by Lab
           </div>
@@ -142,7 +142,7 @@ export function AnalyticsView() {
       </div>
 
       {/* Per-lab cards grid */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-4">
         {LABS.map(l => {
           const s   = labStats(l.id)
           const bc  = s.availablePct > 60 ? '#22c55e' : s.availablePct > 30 ? '#f59e0b' : '#f43f5e'

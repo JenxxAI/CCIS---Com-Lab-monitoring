@@ -18,7 +18,7 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-      'w-52 flex flex-col flex-shrink-0 overflow-y-auto',
+      'w-52 md:w-52 flex flex-col flex-shrink-0 overflow-y-auto h-full',
       'border-r',
       dark
         ? 'bg-dark-surface border-dark-border'

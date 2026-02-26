@@ -99,25 +99,11 @@ export interface Position {
 export type FurnitureType = 'table' | 'door' | 'aircon' | 'server' | 'router' | 'wifi' | 'smarttv'
 
 export interface FurnitureItem {
-  id:       string
-  type:     FurnitureType
-  x:        number
-  y:        number
-  label:    string
-  width:    number
-  height:   number
-  locked?:  boolean
-  groupId?: string
-}
-
-export interface ItemGroup {
-  id:    string
-  label: string
-  color: string   // accent color for the group outline
-}
-
-/** Uniquely identifies any item on the canvas */
-export interface ItemRef {
-  id:   string
-  kind: 'pc' | 'furniture'
+  id:     string
+  type:   FurnitureType
+  x:      number
+  y:      number
+  label:  string
+  width:  number
+  height: number
 }

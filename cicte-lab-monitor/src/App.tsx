@@ -23,7 +23,7 @@ function SubNav() {
 
   return (
     <div className={cn(
-      'h-11 flex items-center gap-1 px-4 flex-shrink-0 border-b',
+      'h-11 flex items-center gap-1 px-2 sm:px-4 flex-shrink-0 border-b overflow-x-auto',
       dark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200'
     )}>
       {tabs.map(tab => {
@@ -32,7 +32,7 @@ function SubNav() {
           <button
             key={tab.id}
             onClick={() => setActiveView(tab.id)}
-            className="h-full px-4 text-[12px] transition-all duration-150"
+            className="h-full px-3 sm:px-4 text-[12px] transition-all duration-150 whitespace-nowrap"
             style={{
               fontWeight: active ? 600 : 400,
               color:      active ? accent : (dark ? '#7b87a2' : '#6b7590'),
@@ -48,8 +48,8 @@ function SubNav() {
 }
 
 export default function App() {
-  const { dark, sidebarOpen } = useThemeStore()
-  const { activeView } = useLabStore()
+  const { dark, sidebarOpen, toggleSidebar } = useThemeStore()
+  const { activeView, selectedPC } = useLabStore()
 
   // Apply dark class to <html>
   useEffect(() => {
@@ -66,13 +66,31 @@ export default function App() {
     )}>
       <Topbar />
 
-      <div className="flex flex-1 overflow-hidden">
-        {sidebarOpen && <Sidebar />}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Desktop sidebar */}
+        <div className="hidden md:block">
+          {sidebarOpen && <Sidebar />}
+        </div>
+
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div className="md:hidden fixed inset-0 z-[60] flex">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={toggleSidebar}
+            />
+            {/* Panel */}
+            <div className="relative z-10 w-64 max-w-[80vw] h-full animate-fade-in">
+              <Sidebar />
+            </div>
+          </div>
+        )}
 
         <main className="flex flex-col flex-1 overflow-hidden min-w-0">
           <SubNav />
 
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden relative">
             {/* Scrollable content */}
             <div className="flex-1 overflow-auto">
               {activeView === 'map'       && <MapView />}
@@ -80,8 +98,21 @@ export default function App() {
               {activeView === 'analytics' && <AnalyticsView />}
             </div>
 
-            {/* PC Detail Panel (slide from right) */}
-            <PCDetailPanel />
+            {/* PC Detail Panel — desktop: side panel, mobile: bottom sheet */}
+            <div className="hidden md:block">
+              <PCDetailPanel />
+            </div>
+            {selectedPC && (
+              <div className="md:hidden fixed inset-0 z-[55] flex flex-col justify-end">
+                <div
+                  className="absolute inset-0 bg-black/40"
+                  onClick={() => useLabStore.getState().setSelectedPC(null)}
+                />
+                <div className="relative z-10 max-h-[75vh] overflow-y-auto rounded-t-2xl animate-fade-in">
+                  <PCDetailPanel />
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>

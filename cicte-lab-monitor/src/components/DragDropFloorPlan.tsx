@@ -135,20 +135,21 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     layouts, editMode,
     initLayout, updatePCPosition, updateFurniturePosition,
     addFurniture, removeFurniture,
+    pushHistory, undo, redo, canUndo, canRedo,
   } = useLayoutStore()
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [gridMode, setGridMode] = useState<GridMode>('pc')
   const dragRef  = useRef<DragState | null>(null)
-  const storeRef = useRef({ layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition })
+  const storeRef = useRef({ layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory })
 
   const accent     = dark ? '#5b7fff' : '#3a5cf5'
   const guideColor = '#f59e0b'
 
   // Keep refs in sync every render
   dragRef.current  = drag
-  storeRef.current = { layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition }
+  storeRef.current = { layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory }
 
   /* ── Positions (merge saved + defaults) ──────────────────────────────── */
 
@@ -359,6 +360,8 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
       const d = dragRef.current
       const s = storeRef.current
       if (d) {
+        // Save current state before committing new position
+        s.pushHistory(s.labId)
         if (!s.layouts[s.labId]) {
           const allPc = { ...getDefaultPositions(s.pcs, s.labId) }
           if (d.kind === 'pc') allPc[d.id] = d.pos
@@ -384,6 +387,26 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!drag, computeSnap])
+
+  /* ── Keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) ───────────────────── */
+
+  useEffect(() => {
+    if (!editMode) return
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo(labId)
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey)) ) {
+        e.preventDefault()
+        redo(labId)
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault()
+        redo(labId)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [editMode, labId, undo, redo])
 
   /* ── Add furniture helper ──────────────────────────────────────────── */
 
@@ -492,13 +515,47 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
 
       {/* ── Edit badge + grid toggle ──────────────────────────────────── */}
       {editMode && (
-        <div className="absolute top-2 left-3 flex items-center gap-2 z-30">
+        <div className="absolute top-2 left-2 sm:left-3 flex flex-wrap items-center gap-1.5 sm:gap-2 z-30 max-w-[calc(100%-16px)]">
           <div
             className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-medium pointer-events-none"
             style={{ background: accent + '18', color: accent, border: `1px solid ${accent}35` }}
           >
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: accent }} />
             Drag to rearrange
+          </div>
+
+          {/* Undo / Redo buttons */}
+          <div className="flex items-center gap-0.5 rounded-md overflow-hidden" style={{ border: `1px solid ${dark ? '#232b3e' : '#dde3f0'}` }}>
+            <button
+              onClick={() => undo(labId)}
+              disabled={!canUndo(labId)}
+              title="Undo (Ctrl+Z)"
+              className={cn(
+                'px-2 py-1 text-[9px] font-medium transition-all flex items-center gap-1',
+                canUndo(labId)
+                  ? (dark ? 'text-slate-300 hover:bg-dark-surface' : 'text-slate-600 hover:bg-slate-200')
+                  : (dark ? 'text-slate-700 cursor-not-allowed' : 'text-slate-300 cursor-not-allowed'),
+              )}
+              style={{ background: dark ? '#141824' : '#f8fafc' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+              Undo
+            </button>
+            <button
+              onClick={() => redo(labId)}
+              disabled={!canRedo(labId)}
+              title="Redo (Ctrl+Shift+Z)"
+              className={cn(
+                'px-2 py-1 text-[9px] font-medium transition-all flex items-center gap-1',
+                canRedo(labId)
+                  ? (dark ? 'text-slate-300 hover:bg-dark-surface' : 'text-slate-600 hover:bg-slate-200')
+                  : (dark ? 'text-slate-700 cursor-not-allowed' : 'text-slate-300 cursor-not-allowed'),
+              )}
+              style={{ background: dark ? '#141824' : '#f8fafc' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" /></svg>
+              Redo
+            </button>
           </div>
 
           {/* Grid toggle */}
@@ -607,14 +664,14 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
 
       {/* ── Add-furniture toolbar (edit mode) ─────────────────────────── */}
       {editMode && (
-        <div className="absolute bottom-3 left-3 flex items-center gap-1 z-30">
-          <span className={cn('text-[9px] mr-1', dark ? 'text-slate-600' : 'text-slate-400')}>Add:</span>
+        <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 right-2 sm:right-3 flex items-center gap-1 z-30 overflow-x-auto">
+          <span className={cn('text-[9px] mr-1 flex-shrink-0', dark ? 'text-slate-600' : 'text-slate-400')}>Add:</span>
           {(['table', 'door', 'aircon', 'server', 'router', 'wifi', 'smarttv'] as const).map(type => (
             <button
               key={type}
               onClick={() => addNewFurniture(type)}
               className={cn(
-                'flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-medium transition-all hover:scale-105',
+                'flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-medium transition-all hover:scale-105 flex-shrink-0',
                 dark ? 'bg-dark-surface border border-dark-border text-slate-400 hover:text-slate-300'
                      : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-700',
               )}
