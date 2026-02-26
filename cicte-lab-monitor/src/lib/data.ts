@@ -37,9 +37,32 @@ const REPAIR_TYPES = [
   'RAM Replacement','HDD Formatting','OS Reinstall','Keyboard Repair',
   'Monitor Fix','GPU Replaced','Virus Removal','PSU Replaced',
 ]
-const RAM_OPTS     = ['4 GB','8 GB','16 GB']
-const STORAGE_OPTS = ['256 GB SSD','500 GB HDD','1 TB HDD']
-const OS_OPTS      = ['Windows 10','Windows 11']
+const RAM_OPTS     = ['4 GB DDR4','8 GB DDR4','16 GB DDR4','8 GB DDR5']
+const STORAGE_OPTS = ['256 GB SSD','500 GB HDD','512 GB NVMe SSD','1 TB HDD']
+const OS_OPTS      = ['Windows 10 Pro','Windows 10 Home','Windows 11 Pro','Windows 11 Home']
+const OS_BUILDS: Record<string, string[]> = {
+  'Windows 10 Pro':  ['19045.3803','19045.4046'],
+  'Windows 10 Home': ['19045.3803','19045.3930'],
+  'Windows 11 Pro':  ['22631.3007','22631.3155','22631.3296'],
+  'Windows 11 Home': ['22631.3007','22631.3155'],
+}
+const CPU_OPTS     = ['Intel Core i3-10100','Intel Core i5-10400','Intel Core i5-12400','Intel Core i7-12700','AMD Ryzen 5 5600','AMD Ryzen 5 3600']
+const GPU_OPTS     = ['Intel UHD 630','Intel UHD 730','AMD Radeon Vega 8','NVIDIA GT 1030','NVIDIA GTX 1650','Integrated']
+const MOBO_OPTS    = ['ASUS PRIME H510M-E','Gigabyte B560M DS3H','MSI PRO B660M-A','ASRock B450M Pro4']
+const MONITOR_OPTS = ['Dell E2222H 22"','Samsung S24R350 24"','Acer V226HQL 22"','LG 24MK430H 24"','AOC 24B2XH 24"']
+const PC_TYPE_OPTS: Array<'Desktop' | 'Laptop' | 'All-in-One'> = ['Desktop','Desktop','Desktop','All-in-One']
+
+const SOFTWARE_POOL = [
+  'Microsoft Office 365','Google Chrome','Mozilla Firefox','Visual Studio Code',
+  'Python 3.12','Java JDK 21','Node.js 20 LTS','Git 2.43',
+  'MySQL Workbench','XAMPP 8.2','FileZilla','WinRAR',
+  'Adobe Acrobat Reader','VLC Media Player','Notepad++','7-Zip',
+  'NetBeans IDE 20','Eclipse IDE','IntelliJ IDEA Community','Android Studio',
+  'Cisco Packet Tracer','Wireshark','VMware Workstation Player',
+  'MS Teams','Zoom','OBS Studio','Blender 4.0',
+  'AutoCAD 2024','Adobe Photoshop 2024','Figma Desktop','Dev-C++',
+  'MATLAB R2024a','Turbo C++','MinGW GCC','Arduino IDE 2.3',
+]
 
 const rand   = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 const rInt   = (a: number, b: number) => Math.floor(Math.random() * (b - a + 1)) + a
@@ -67,6 +90,16 @@ export function makePC(labId: string, num: number): PC {
       : Math.random() < 0.70 ? 'good'
       : Math.random() < 0.50 ? 'lagging' : 'needs_repair'
 
+  const os = rand(OS_OPTS)
+  const softwareCount = rInt(8, 16)
+  const shuffled = [...SOFTWARE_POOL].sort(() => Math.random() - 0.5)
+  const software = shuffled.slice(0, softwareCount)
+  const labNum = labId.replace(/\D/g, '') || '1'
+  const pcOctet = rInt(10, 250)
+  const macParts = Array.from({ length: 6 }, () =>
+    rInt(0, 255).toString(16).padStart(2, '0').toUpperCase()
+  )
+
   return {
     id:  `${labId}-${num}`,
     num,
@@ -82,9 +115,18 @@ export function makePC(labId: string, num: number): PC {
     routerSSID:     `CICTE-${labId.toUpperCase()}`,
     routerPassword: `Net@${rInt(10000,99999)}`,
     specs: {
-      ram:     rand(RAM_OPTS),
-      storage: rand(STORAGE_OPTS),
-      os:      rand(OS_OPTS),
+      ram:         rand(RAM_OPTS),
+      storage:     rand(STORAGE_OPTS),
+      os,
+      osBuild:     rand(OS_BUILDS[os] ?? ['Unknown']),
+      cpu:         rand(CPU_OPTS),
+      gpu:         rand(GPU_OPTS),
+      motherboard: rand(MOBO_OPTS),
+      monitor:     rand(MONITOR_OPTS),
+      ipAddress:   `192.168.${labNum}.${pcOctet}`,
+      macAddress:  macParts.join(':'),
+      software,
+      pcType:      rand(PC_TYPE_OPTS),
     },
     repairs: makeRepairs(),
   }

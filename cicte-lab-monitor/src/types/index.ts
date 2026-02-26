@@ -12,10 +12,18 @@ export interface RepairLog {
 }
 
 export interface PCSpecs {
-  ram:     string
-  storage: string
-  os:      string
-  cpu?:    string
+  ram:          string
+  storage:      string
+  os:           string
+  osBuild?:     string
+  cpu:          string
+  gpu?:         string
+  motherboard?: string
+  monitor?:     string
+  ipAddress?:   string
+  macAddress?:  string
+  software:     string[]
+  pcType:       'Desktop' | 'Laptop' | 'All-in-One'
 }
 
 export interface PC {

@@ -43,12 +43,6 @@ export function Topbar() {
           alt="SUNN University"
           className="h-8 sm:h-9 w-auto object-contain flex-shrink-0"
         />
-        {/* CCIS College Logo */}
-        <img
-          src="/logos/ccis-logo.png"
-          alt="CCIS"
-          className="h-8 sm:h-9 w-auto object-contain flex-shrink-0 rounded-full"
-        />
         <div className="hidden sm:block">
           <div className={cn(
             'text-[13px] font-bold leading-tight',
