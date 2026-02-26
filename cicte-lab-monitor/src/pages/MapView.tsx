@@ -1,6 +1,6 @@
-import { useLabStore, useThemeStore } from '@/store'
-import { LABS, GENERIC_GRIDS } from '@/lib/data'
-import { FloorPlanCL123, FloorPlanCL45, FloorPlanGeneric } from '@/components/FloorPlans'
+import { useLabStore, useThemeStore, useLayoutStore } from '@/store'
+import { LABS } from '@/lib/data'
+import { DragDropFloorPlan } from '@/components/DragDropFloorPlan'
 import { COND_HEX, COND_META } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { PCStatus } from '@/types'
@@ -12,6 +12,7 @@ export function MapView() {
     setSelectedPC, statusFilter, condFilter: _condFilter,
     setStatusFilter, setCondFilter: _setCondFilter,
   } = useLabStore()
+  const { editMode, setEditMode, resetLayout } = useLayoutStore()
 
   const lab  = LABS.find(l => l.id === activeLab)!
   const pcs  = labData[activeLab] ?? []
@@ -24,34 +25,52 @@ export function MapView() {
     { value: 'maintenance', label: 'Maintenance', color: '#f43f5e', bg: 'rgba(244,63,94,0.10)'  },
   ]
 
-  const renderFloorPlan = () => {
-    const props = {
-      labName: lab.name, pcs,
-      selectedPC, statusFilter: statusFilter as PCStatus | 'all',
-      onSelect: (pc: any) => setSelectedPC(pc),
-    }
-    if (['cl1','cl2','cl3'].includes(activeLab)) return <FloorPlanCL123 {...props} />
-    if (['cl4','cl5'].includes(activeLab))       return <FloorPlanCL45  {...props} />
-    const g = GENERIC_GRIDS[activeLab] ?? { rows: 4, cols: 6 }
-    return <FloorPlanGeneric {...props} rows={g.rows} cols={g.cols} />
-  }
-
   return (
     <div className="p-6 animate-fade-in">
       {/* Header */}
       <div className="flex justify-between items-end mb-5">
-        <div>
-          <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
-            {lab.name}
-          </h1>
-          <p className={cn('text-[12px] mt-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
-            {pcs.length} workstations
-            {lab.hasFloorPlan && (
-              <span className="ml-2 font-medium" style={{ color: accent }}>
-                ✦ Actual floor plan
-              </span>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
+              {lab.name}
+            </h1>
+            <p className={cn('text-[12px] mt-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
+              {pcs.length} workstations
+            </p>
+          </div>
+
+          {/* Edit Layout toggle */}
+          <button
+            onClick={() => setEditMode(!editMode)}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150',
+              editMode
+                ? 'text-white shadow-md'
+                : (dark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'),
             )}
-          </p>
+            style={{
+              background: editMode
+                ? accent
+                : (dark ? '#1a2030' : '#f0f4ff'),
+              border: `1px solid ${editMode ? accent : (dark ? '#232b3e' : '#dde3f0')}`,
+            }}
+          >
+            {editMode ? '✓ Done Editing' : '✎ Edit Layout'}
+          </button>
+
+          {/* Reset layout */}
+          {editMode && (
+            <button
+              onClick={() => { resetLayout(activeLab); }}
+              className={cn(
+                'px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all',
+                dark ? 'bg-dark-surfaceAlt border border-dark-border text-slate-400 hover:text-red-400'
+                     : 'bg-white border border-slate-200 text-slate-500 hover:text-red-500',
+              )}
+            >
+              ↺ Reset
+            </button>
+          )}
         </div>
 
         {/* Filter pills */}
@@ -84,9 +103,16 @@ export function MapView() {
         </div>
       </div>
 
-      {/* Floor plan */}
+      {/* Floor plan — drag & drop canvas */}
       <div className="overflow-x-auto pb-2">
-        {renderFloorPlan()}
+        <DragDropFloorPlan
+          labId={activeLab}
+          labName={lab.name}
+          pcs={pcs}
+          selectedPC={selectedPC}
+          statusFilter={statusFilter as PCStatus | 'all'}
+          onSelect={(pc) => setSelectedPC(pc)}
+        />
       </div>
 
       {/* Condition legend */}
