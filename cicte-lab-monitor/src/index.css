@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #232b3e;
+    border-radius: 4px;
+  }
+  .light ::-webkit-scrollbar-thumb {
+    background: #dde3f0;
+  }
+}
+
+@layer utilities {
+  .font-sans   { font-family: 'DM Sans', system-ui, sans-serif; }
+  .font-mono   { font-family: 'DM Mono', monospace; }
+  .accent      { color: #5b7fff; }
+  .light .accent { color: #3a5cf5; }
+}
