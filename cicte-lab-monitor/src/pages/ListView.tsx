@@ -29,9 +29,9 @@ export function ListView() {
   const headers = ['PC', 'Status', 'Condition', 'Last Student', 'Last Used', 'Changed By', 'Repairs']
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="p-3 sm:p-6 animate-fade-in">
       {/* Header */}
-      <div className="flex justify-between items-end mb-5">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 sm:mb-5">
         <div>
           <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
             {lab.name}
@@ -41,7 +41,7 @@ export function ListView() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[12px]',
@@ -54,7 +54,7 @@ export function ListView() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className={cn(
-                'bg-transparent outline-none w-44 placeholder:text-slate-500',
+                'bg-transparent outline-none w-32 sm:w-44 placeholder:text-slate-500',
                 dark ? 'text-slate-200' : 'text-slate-800'
               )}
             />
@@ -84,9 +84,9 @@ export function ListView() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table — Desktop */}
       <div className={cn(
-        'rounded-2xl border overflow-hidden',
+        'rounded-2xl border overflow-hidden hidden sm:block',
         dark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200 shadow-sm'
       )}>
         <table className="w-full border-collapse">
@@ -167,6 +167,54 @@ export function ListView() {
             No PCs match the current filters.
           </div>
         )}
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="sm:hidden flex flex-col gap-2">
+        {filtered.length === 0 && (
+          <div className={cn(
+            'py-12 text-center text-[13px]',
+            dark ? 'text-slate-600' : 'text-slate-400'
+          )}>
+            No PCs match the current filters.
+          </div>
+        )}
+        {filtered.map(pc => {
+          const isSel = selectedPC?.id === pc.id
+          const cc    = COND_META[pc.condition]
+          return (
+            <div
+              key={pc.id}
+              onClick={() => setSelectedPC(pc)}
+              className={cn(
+                'rounded-xl border p-3 cursor-pointer transition-colors',
+                dark ? 'border-dark-border' : 'border-slate-200',
+                isSel
+                  ? (dark ? 'bg-[rgba(91,127,255,0.08)] border-accent/30' : 'bg-blue-50 border-blue-200')
+                  : (dark ? 'bg-dark-surface' : 'bg-white')
+              )}
+            >
+              <div className="flex justify-between items-center mb-1.5">
+                <span className={cn('font-mono text-[13px] font-semibold', dark ? 'text-slate-200' : 'text-slate-800')}>
+                  PC-{String(pc.num).padStart(2, '0')}
+                </span>
+                <div className="flex gap-1.5">
+                  <Badge color={STATUS_HEX[pc.status]} bg={STATUS_BG_HEX[pc.status]}>
+                    {STATUS_META[pc.status].label}
+                  </Badge>
+                  <span className="text-[11px] font-medium" style={{ color: COND_HEX[pc.condition] }}>
+                    {cc.label}
+                  </span>
+                </div>
+              </div>
+              <div className={cn('text-[11px] flex flex-wrap gap-x-3 gap-y-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
+                <span>{pc.lastStudent}</span>
+                <span className="font-mono">{pc.lastUsed}</span>
+                <span>{pc.repairs.length} repairs</span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

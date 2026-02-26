@@ -16,7 +16,7 @@ export function Topbar() {
 
   return (
     <header className={cn(
-      'h-14 flex items-center gap-3 px-4 flex-shrink-0',
+      'h-14 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 flex-shrink-0',
       'sticky top-0 z-50 border-b',
       dark
         ? 'bg-dark-surface border-dark-border'
@@ -35,38 +35,38 @@ export function Topbar() {
         <Menu size={17} />
       </button>
 
-      {/* Logo */}
-      <div className="flex items-center gap-2.5">
-        <div className={cn(
-          'w-[30px] h-[30px] rounded-lg flex items-center justify-center text-white flex-shrink-0',
-        )}
-          style={{ background: dark ? '#5b7fff' : '#3a5cf5' }}
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <rect x="1" y="1"     width="5.5" height="5.5" rx="1.2" fill="white" opacity=".9"/>
-            <rect x="7.5" y="1"   width="5.5" height="5.5" rx="1.2" fill="white" opacity=".55"/>
-            <rect x="1" y="7.5"   width="5.5" height="5.5" rx="1.2" fill="white" opacity=".55"/>
-            <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1.2" fill="white" opacity=".9"/>
-          </svg>
-        </div>
-        <div>
+      {/* Logos */}
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* SUNN University Logo */}
+        <img
+          src="/logos/sunn-logo.png"
+          alt="SUNN University"
+          className="h-8 sm:h-9 w-auto object-contain flex-shrink-0"
+        />
+        {/* CCIS College Logo */}
+        <img
+          src="/logos/ccis-logo.png"
+          alt="CCIS"
+          className="h-8 sm:h-9 w-auto object-contain flex-shrink-0 rounded-full"
+        />
+        <div className="hidden sm:block">
           <div className={cn(
             'text-[13px] font-bold leading-tight',
             dark ? 'text-slate-100' : 'text-slate-900'
           )}>
-            CICTE Lab Monitor
+            CCIS Lab Monitor
           </div>
           <div className={cn(
             'text-[10px] leading-none',
             dark ? 'text-slate-600' : 'text-slate-400'
           )}>
-            Management System
+            SUNN &middot; College of Computing &amp; Information Sciences
           </div>
         </div>
       </div>
 
-      {/* Global stats */}
-      <div className="ml-auto flex items-center gap-0">
+      {/* Global stats — hidden on mobile */}
+      <div className="ml-auto hidden sm:flex items-center gap-0">
         {[
           { l: 'Total',       v: total,       c: dark ? '#e8ecf4' : '#0f1724' },
           { l: 'Available',   v: available,   c: '#22c55e' },
@@ -93,9 +93,9 @@ export function Topbar() {
         ))}
       </div>
 
-      {/* Live indicator */}
+      {/* Live indicator — pushed right on mobile */}
       <div className={cn(
-        'flex items-center gap-1.5 px-3 py-1 rounded-full border',
+        'flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full border ml-auto sm:ml-0',
         dark
           ? 'bg-dark-surfaceAlt border-dark-border'
           : 'bg-slate-50 border-slate-200'

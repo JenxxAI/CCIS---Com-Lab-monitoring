@@ -2,3 +2,7 @@ node_modules/
 dist/
 .env
 *.tar.gz
+
+# Ignore root-level logo originals
+CCIS Logo.png
+Sunn Logo.png
