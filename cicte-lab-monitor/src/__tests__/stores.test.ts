@@ -36,6 +36,7 @@ function makePC(overrides: Partial<PC> = {}): PC {
       pcType: 'Desktop',
     },
     repairs: [],
+    installedApps: ['vscode', 'chrome'],
     ...overrides,
   }
 }

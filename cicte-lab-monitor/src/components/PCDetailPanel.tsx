@@ -1,4 +1,4 @@
-import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown } from 'lucide-react'
+import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown, Plus, Check } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from './Badge'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { useThemeStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { cn } from '@/lib/utils'
 import { toast } from '@/store/toast'
+import { APP_CATALOG, APP_MAP } from '@/lib/appCatalog'
 import type { PCStatus, PCCondition } from '@/types'
 
 function KV({ label, value, mono = false }: {
@@ -53,6 +54,7 @@ export function PCDetailPanel() {
   const lab = LABS.find(l => l.id === activeLab)
   const [showStatusPicker, setShowStatusPicker] = useState(false)
   const [showCondPicker, setShowCondPicker] = useState(false)
+  const [showAppPicker, setShowAppPicker] = useState(false)
 
   if (!selectedPC) return null
 
@@ -217,7 +219,7 @@ export function PCDetailPanel() {
         <KV label="SSID" value={selectedPC.routerSSID} />
         <KV label="Router Key" value={selectedPC.routerPassword} mono />
 
-        {/* Installed Software */}
+        {/* Installed Software (legacy tags) */}
         <SectionHead title={`Software \u00b7 ${selectedPC.specs.software.length}`} icon={<Package size={11} />} />
         <div className="flex flex-wrap gap-1 mb-1">
           {selectedPC.specs.software.map((sw) => (
@@ -234,6 +236,138 @@ export function PCDetailPanel() {
             </span>
           ))}
         </div>
+
+        {/* ── Installed Apps (with icons) ─────────────────────────────── */}
+        <SectionHead
+          title={`Installed Apps \u00b7 ${selectedPC.installedApps.length}`}
+          icon={<Package size={11} />}
+        />
+
+        {/* App grid */}
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
+          {selectedPC.installedApps.map(appId => {
+            const app = APP_MAP[appId]
+            if (!app) return null
+            const Icon = app.icon
+            return (
+              <div
+                key={appId}
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-colors group',
+                  dark
+                    ? 'bg-dark-surfaceAlt border-dark-border hover:border-dark-borderSub'
+                    : 'bg-slate-50 border-slate-100 hover:border-slate-200'
+                )}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className={cn(
+                  'text-[10px] leading-tight truncate',
+                  dark ? 'text-slate-300' : 'text-slate-600'
+                )}>
+                  {app.name}
+                </span>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      const next = selectedPC.installedApps.filter(id => id !== appId)
+                      updatePC({ ...selectedPC, installedApps: next })
+                      toast.info(`Removed ${app.name}`)
+                    }}
+                    className={cn(
+                      'ml-auto opacity-0 group-hover:opacity-100 transition-opacity',
+                      'w-4 h-4 rounded flex items-center justify-center flex-shrink-0',
+                      dark
+                        ? 'hover:bg-dark-border text-slate-500 hover:text-rose-400'
+                        : 'hover:bg-slate-200 text-slate-400 hover:text-rose-500'
+                    )}
+                    title={`Remove ${app.name}`}
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Admin: Add apps button + picker */}
+        {isAdmin && (
+          <div className="relative mb-1">
+            <button
+              onClick={() => setShowAppPicker(p => !p)}
+              className={cn(
+                'w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed text-[11px] font-medium transition-colors',
+                dark
+                  ? 'border-dark-border text-slate-500 hover:border-accent hover:text-accent'
+                  : 'border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-500'
+              )}
+            >
+              <Plus size={12} />
+              Add App
+            </button>
+
+            {showAppPicker && (
+              <div className={cn(
+                'absolute bottom-full left-0 right-0 mb-1 z-50 rounded-xl border shadow-xl overflow-hidden animate-fade-in',
+                dark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200',
+              )}>
+                <div className={cn(
+                  'px-3 py-2 border-b text-[11px] font-semibold',
+                  dark ? 'border-dark-border text-slate-300' : 'border-slate-100 text-slate-700'
+                )}>
+                  App Catalog
+                </div>
+                <div className="max-h-52 overflow-y-auto p-1.5">
+                  {APP_CATALOG.map(app => {
+                    const installed = selectedPC.installedApps.includes(app.id)
+                    const Icon = app.icon
+                    return (
+                      <button
+                        key={app.id}
+                        onClick={() => {
+                          if (installed) {
+                            const next = selectedPC.installedApps.filter(id => id !== app.id)
+                            updatePC({ ...selectedPC, installedApps: next })
+                            toast.info(`Removed ${app.name}`)
+                          } else {
+                            updatePC({ ...selectedPC, installedApps: [...selectedPC.installedApps, app.id] })
+                            toast.success(`Added ${app.name}`)
+                          }
+                        }}
+                        className={cn(
+                          'w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors',
+                          dark ? 'hover:bg-dark-surfaceAlt' : 'hover:bg-slate-50',
+                          installed && (dark ? 'bg-dark-surfaceAlt' : 'bg-blue-50/60'),
+                        )}
+                      >
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className={cn(
+                            'text-[11px] font-medium truncate',
+                            dark ? 'text-slate-200' : 'text-slate-700'
+                          )}>
+                            {app.name}
+                          </div>
+                          <div className={cn(
+                            'text-[9px]',
+                            dark ? 'text-slate-600' : 'text-slate-400'
+                          )}>
+                            {app.category}
+                          </div>
+                        </div>
+                        {installed ? (
+                          <Check size={13} className="text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <Plus size={13} className={cn('flex-shrink-0', dark ? 'text-slate-600' : 'text-slate-300')} />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Credentials */}
         <SectionHead title="Credentials" icon={<Shield size={11} />} />
@@ -292,7 +426,7 @@ export function PCDetailPanel() {
               <div className={dark ? 'text-slate-600' : 'text-slate-400'}>Condition</div>
             </div>
             <div>
-              <div className={cn('font-semibold', dark ? 'text-slate-200' : 'text-slate-700')}>{selectedPC.specs.software.length}</div>
+              <div className={cn('font-semibold', dark ? 'text-slate-200' : 'text-slate-700')}>{selectedPC.installedApps.length}</div>
               <div className={dark ? 'text-slate-600' : 'text-slate-400'}>Apps</div>
             </div>
             <div>
