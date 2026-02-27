@@ -8,7 +8,7 @@ import { useThemeStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { cn } from '@/lib/utils'
 import { toast } from '@/store/toast'
-import { APP_CATALOG, APP_MAP } from '@/lib/appCatalog'
+import { APP_CATALOG, APP_MAP, AppIcon } from '@/lib/appCatalog'
 import type { PCStatus, PCCondition } from '@/types'
 
 function KV({ label, value, mono = false }: {
@@ -248,7 +248,6 @@ export function PCDetailPanel() {
           {selectedPC.installedApps.map(appId => {
             const app = APP_MAP[appId]
             if (!app) return null
-            const Icon = app.icon
             return (
               <div
                 key={appId}
@@ -259,7 +258,7 @@ export function PCDetailPanel() {
                     : 'bg-slate-50 border-slate-100 hover:border-slate-200'
                 )}
               >
-                <Icon className="w-5 h-5 flex-shrink-0 rounded-[3px]" />
+                <AppIcon app={app} className="w-5 h-5 flex-shrink-0 rounded-[3px]" />
                 <span className={cn(
                   'text-[10px] leading-tight truncate',
                   dark ? 'text-slate-300' : 'text-slate-600'
@@ -320,7 +319,6 @@ export function PCDetailPanel() {
                 <div className="max-h-52 overflow-y-auto p-1.5">
                   {APP_CATALOG.map(app => {
                     const installed = selectedPC.installedApps.includes(app.id)
-                    const Icon = app.icon
                     return (
                       <button
                         key={app.id}
@@ -340,7 +338,7 @@ export function PCDetailPanel() {
                           installed && (dark ? 'bg-dark-surfaceAlt' : 'bg-blue-50/60'),
                         )}
                       >
-                        <Icon className="w-6 h-6 flex-shrink-0 rounded" />
+                        <AppIcon app={app} className="w-6 h-6 flex-shrink-0 rounded" />
                         <div className="flex-1 min-w-0">
                           <div className={cn(
                             'text-[11px] font-medium truncate',
