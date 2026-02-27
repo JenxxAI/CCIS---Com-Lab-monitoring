@@ -155,7 +155,7 @@ export default function App() {
             </div>
 
             {/* PC Detail Panel — desktop: side panel, mobile: bottom sheet */}
-            <div className="hidden md:block">
+            <div className="hidden md:block h-full overflow-hidden">
               <PCDetailPanel />
             </div>
             {selectedPC && (

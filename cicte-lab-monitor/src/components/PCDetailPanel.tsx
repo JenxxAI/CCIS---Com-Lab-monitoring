@@ -77,7 +77,7 @@ export function PCDetailPanel() {
   return (
     <aside
       className={cn(
-        'w-full md:w-80 flex-shrink-0 overflow-y-auto animate-fade-in',
+        'w-full md:w-80 h-full flex-shrink-0 overflow-y-auto animate-fade-in',
         'border-l md:border-l',
         dark
           ? 'bg-dark-surface border-dark-border'
