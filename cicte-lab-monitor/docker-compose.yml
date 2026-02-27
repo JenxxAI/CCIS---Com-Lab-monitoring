@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  cicte-monitor:
+    build: .
+    container_name: cicte-lab-monitor
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - AGENT_KEY=cicte-agent-2026
+    volumes:
+      # Persist the database across restarts
+      - db-data:/app/server
+
+volumes:
+  db-data:
+
+          cache-dependency-path: cicte-lab-monitor/package-lock.json
+
+      - name: Install dependencies
+        working-directory: cicte-lab-monitor
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        working-directory: cicte-lab-monitor
+        run: npm run lint
+
+      - name: Type check
+        working-directory: cicte-lab-monitor
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: cicte-lab-monitor
+        run: npm test
+
+      - name: Build
+        working-directory: cicte-lab-monitor
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: cicte-lab-monitor/dist
+          retention-days: 7

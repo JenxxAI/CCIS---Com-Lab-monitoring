@@ -6,3 +6,4 @@ dist/
 # Ignore root-level logo originals
 CCIS Logo.png
 Sunn Logo.png
+.vite/
