@@ -65,8 +65,8 @@ const SOFTWARE_POOL = [
 ]
 
 const APP_IDS = [
-  'xampp','vscode','vscode-purple','ms-office','typing-master',
-  'brackets','postman','chrome','firefox','browsers','notepad-pp','adobe-apps',
+  'xampp','vscode','vscode-purple','word','excel','ppt','typing-master',
+  'brackets','postman','chrome','firefox','browsers','notepad-pp','adobe-apps','blender',
 ]
 
 const rand   = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
