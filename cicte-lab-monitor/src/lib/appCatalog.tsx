@@ -6,110 +6,185 @@ export interface AppInfo {
   id:       string
   name:     string
   category: 'Development' | 'Productivity' | 'Design' | 'Utility' | 'Browser'
-  color:    string          // brand color for the icon
+  color:    string
   icon:     FC<SVGProps<SVGSVGElement>>
 }
 
-// ─── Tiny SVG icons (16×16 viewBox) ──────────────────────────────────────────
+// ─── Brand-accurate SVG icons (24×24 viewBox) ───────────────────────────────
 
+/* XAMPP — Orange background, stylised "X" with server stack lines */
 const IconXAMPP: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#FB7A24" />
-    <path d="M4 4l4 4m0-4L4 8M8 8l4 4m0-4L8 8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#FB7A24"/>
+    <path d="M7 6l5 6 5-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 18l5-6 5 6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="1.5" fill="#fff"/>
   </svg>
 )
 
+/* VS Code — Blue background, the recognisable folded-ribbon / angular bracket mark */
 const IconVSCode: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#007ACC" />
-    <path d="M11 3v10l-7-5 7-5zM4 4.5l5 3.5-5 3.5" stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#007ACC"/>
+    <path d="M16.5 4v16L6 15l3.5-3L6 9l10.5-5z" fill="#fff" fillOpacity="0.95"/>
+    <path d="M16.5 4L9.5 12l7 8" stroke="#007ACC" strokeWidth="1.5" fill="none"/>
+    <path d="M6 9l3.5 3L6 15" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
   </svg>
 )
 
+/* VS Code (Purple / Insiders) — Purple version of the same mark */
 const IconVSCodePurple: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#8B5CF6" />
-    <path d="M11 3v10l-7-5 7-5zM4 4.5l5 3.5-5 3.5" stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#8B5CF6"/>
+    <path d="M16.5 4v16L6 15l3.5-3L6 9l10.5-5z" fill="#fff" fillOpacity="0.95"/>
+    <path d="M16.5 4L9.5 12l7 8" stroke="#8B5CF6" strokeWidth="1.5" fill="none"/>
+    <path d="M6 9l3.5 3L6 15" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
   </svg>
 )
 
+/* MS Office — The Microsoft "M" + four‑colour square motif */
 const IconMSOffice: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#D83B01" />
-    <path d="M4 4h3v8H4V4zm5 1h3v6H9V5z" fill="#fff" fillOpacity="0.9" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#D83B01"/>
+    <rect x="5" y="5" width="6" height="6" rx="0.5" fill="#F25022"/>
+    <rect x="13" y="5" width="6" height="6" rx="0.5" fill="#7FBA00"/>
+    <rect x="5" y="13" width="6" height="6" rx="0.5" fill="#00A4EF"/>
+    <rect x="13" y="13" width="6" height="6" rx="0.5" fill="#FFB900"/>
   </svg>
 )
 
+/* Typing Master — Keyboard with speed lines */
 const IconTypingMaster: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#2B9348" />
-    <rect x="3" y="8" width="10" height="5" rx="1" fill="#fff" fillOpacity="0.9" />
-    <rect x="4" y="9.5" width="1.5" height="1" rx="0.2" fill="#2B9348" />
-    <rect x="6" y="9.5" width="1.5" height="1" rx="0.2" fill="#2B9348" />
-    <rect x="8" y="9.5" width="1.5" height="1" rx="0.2" fill="#2B9348" />
-    <rect x="10" y="9.5" width="1.5" height="1" rx="0.2" fill="#2B9348" />
-    <rect x="5" y="11" width="6" height="1" rx="0.2" fill="#2B9348" />
-    <path d="M5 7l3-3.5L11 7" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#2B9348"/>
+    {/* Keyboard body */}
+    <rect x="3" y="10" width="18" height="10" rx="2" fill="#fff" fillOpacity="0.95"/>
+    {/* Keys row 1 */}
+    <rect x="5" y="11.5" width="2.5" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    <rect x="8.5" y="11.5" width="2.5" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    <rect x="12" y="11.5" width="2.5" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    <rect x="15.5" y="11.5" width="3" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    {/* Keys row 2 */}
+    <rect x="5" y="14.5" width="2.5" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    <rect x="8.5" y="14.5" width="2.5" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    <rect x="12" y="14.5" width="2.5" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    <rect x="15.5" y="14.5" width="3" height="2" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    {/* Spacebar */}
+    <rect x="7" y="17.5" width="10" height="1.5" rx="0.5" fill="#2B9348" fillOpacity="0.7"/>
+    {/* Speed lines */}
+    <path d="M6 7h4M5 5h6M7 3h3" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" opacity="0.8"/>
   </svg>
 )
 
+/* Brackets — Blue background, the iconic angle brackets < > */
 const IconBrackets: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#0D47A1" />
-    <path d="M5 3.5L3 8l2 4.5M11 3.5l2 4.5-2 4.5" stroke="#42A5F5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#0D47A1"/>
+    <path d="M9 5L4 12l5 7" stroke="#42A5F5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M15 5l5 7-5 7" stroke="#42A5F5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
 
+/* Postman — Orange background, the rocket / space-helmet mark */
 const IconPostman: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#FF6C37" />
-    <circle cx="8" cy="8" r="4" fill="#fff" fillOpacity="0.9" />
-    <path d="M6.5 8l1 1 2.5-2.5" stroke="#FF6C37" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#FF6C37"/>
+    {/* Outer ring */}
+    <circle cx="12" cy="12" r="7" stroke="#fff" strokeWidth="1.5" fill="none"/>
+    {/* Rocket body */}
+    <path d="M12 6c-1.5 2-2 4-2 6s.5 4 2 6c1.5-2 2-4 2-6s-.5-4-2-6z" fill="#fff" fillOpacity="0.9"/>
+    {/* Horizontal line */}
+    <path d="M5 12h14" stroke="#fff" strokeWidth="1" opacity="0.6"/>
+    {/* Center dot */}
+    <circle cx="12" cy="12" r="1.5" fill="#FF6C37"/>
   </svg>
 )
 
-const IconBrowser: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#4285F4" />
-    <circle cx="8" cy="8.5" r="3.5" stroke="#fff" strokeWidth="1.2" />
-    <path d="M4.5 8.5h7M8 5v7M5.2 6.3a4 4 0 005.6 0M5.2 10.7a4 4 0 015.6 0" stroke="#fff" strokeWidth="0.7" />
-  </svg>
-)
-
-const IconNotepadPP: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#90BE6D" />
-    <rect x="4" y="3" width="8" height="10" rx="1" fill="#fff" fillOpacity="0.9" />
-    <path d="M6 6h4M6 8h4M6 10h2.5" stroke="#555" strokeWidth="0.8" strokeLinecap="round" />
-  </svg>
-)
-
-const IconAdobe: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#FF0000" />
-    <path d="M3 12L8 3l5 9H3z" fill="#fff" fillOpacity="0.9" />
-    <path d="M8 7.5l2 4.5H6l2-4.5z" fill="#FF0000" />
-  </svg>
-)
-
-// Chrome
+/* Google Chrome — The four‑colour pinwheel + blue center circle */
 const IconChrome: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#1A73E8" />
-    <circle cx="8" cy="8" r="3" fill="#fff" />
-    <circle cx="8" cy="8" r="1.5" fill="#1A73E8" />
-    <path d="M11 8a3 3 0 00-.5-1.7L14 5" stroke="#EA4335" strokeWidth="1.2" />
-    <path d="M6.5 10.6A3 3 0 015 8l-3.5 1" stroke="#34A853" strokeWidth="1.2" />
-    <path d="M9.5 10.6a3 3 0 01-1.5.4L6.5 14" stroke="#FBBC05" strokeWidth="1.2" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#fff"/>
+    {/* Red section (top) */}
+    <path d="M12 5a7 7 0 016.06 3.5H12V5z" fill="#EA4335"/>
+    <path d="M18.06 8.5A7 7 0 0119 12h-3.5L12 8.5h6.06z" fill="#EA4335"/>
+    {/* Yellow section (bottom-right) */}
+    <path d="M19 12a7 7 0 01-3.5 6.06L12 12h7z" fill="#FBBC05"/>
+    <path d="M15.5 18.06A7 7 0 0112 19v-3.5l3.5-5.5v8.06z" fill="#FBBC05"/>
+    {/* Green section (bottom-left) */}
+    <path d="M12 19a7 7 0 01-6.06-3.5L12 12v7z" fill="#34A853"/>
+    <path d="M5.94 15.5A7 7 0 015 12h3.5l3.5 3.5-6.06-0z" fill="#34A853"/>
+    {/* Red section cont. */}
+    <path d="M5 12a7 7 0 013.5-6.06L12 12H5z" fill="#EA4335"/>
+    {/* Outer circle to clean up */}
+    <circle cx="12" cy="12" r="7" fill="none" stroke="#fff" strokeWidth="0.5"/>
+    {/* Blue center */}
+    <circle cx="12" cy="12" r="3" fill="#4285F4"/>
+    <circle cx="12" cy="12" r="3" fill="none" stroke="#fff" strokeWidth="0.8"/>
   </svg>
 )
 
-// Firefox
+/* Mozilla Firefox — Globe with fox wrapping around */
 const IconFirefox: FC<SVGProps<SVGSVGElement>> = (p) => (
-  <svg viewBox="0 0 16 16" fill="none" {...p}>
-    <rect width="16" height="16" rx="3" fill="#FF7139" />
-    <circle cx="8" cy="8.5" r="4" fill="#fff" fillOpacity="0.85" />
-    <path d="M6 5c1-2 5-1 5 2s-2 3-3 4" stroke="#FF7139" strokeWidth="1.5" strokeLinecap="round" />
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#20123A"/>
+    {/* Globe */}
+    <circle cx="12" cy="12" r="7.5" fill="url(#ffGrad)"/>
+    <defs>
+      <radialGradient id="ffGrad" cx="0.3" cy="0.3" r="0.8">
+        <stop offset="0%" stopColor="#FFBD4F"/>
+        <stop offset="50%" stopColor="#FF980E"/>
+        <stop offset="100%" stopColor="#FF6611"/>
+      </radialGradient>
+    </defs>
+    {/* Fox tail/wrap */}
+    <path d="M18 7c1 2 1.2 4 .5 6.5C17.5 17 14.5 19 12 19c-4 0-7-3-7-7 0-1 .2-2 .7-3 .3 1.5 1.5 2.5 3 2.5-.5-2 0-4 2-5.5 0 2 1 3 2.5 3.5C14.5 10 16 9 16.5 7c.5-.1 1 0 1.5 0z" fill="#fff" fillOpacity="0.95"/>
+    {/* Inner flame */}
+    <path d="M13.5 9.5c.5 1 0 2.5-1 3s-2.5 0-3-1 0-2.5 1-3 2.5 0 3 1z" fill="#FF6611" fillOpacity="0.6"/>
+  </svg>
+)
+
+/* Other Browsers — Generic globe icon */
+const IconBrowser: FC<SVGProps<SVGSVGElement>> = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#5F6368"/>
+    <circle cx="12" cy="12" r="7" stroke="#fff" strokeWidth="1.5" fill="none"/>
+    <ellipse cx="12" cy="12" rx="3" ry="7" stroke="#fff" strokeWidth="1" fill="none"/>
+    <path d="M5 12h14" stroke="#fff" strokeWidth="1"/>
+    <path d="M5.8 8.5h12.4M5.8 15.5h12.4" stroke="#fff" strokeWidth="0.7" opacity="0.6"/>
+    <path d="M12 5v14" stroke="#fff" strokeWidth="1"/>
+  </svg>
+)
+
+/* Notepad++ — The green chameleon on a notepad */
+const IconNotepadPP: FC<SVGProps<SVGSVGElement>> = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#90BE6D"/>
+    {/* Notepad */}
+    <rect x="5" y="4" width="14" height="17" rx="1.5" fill="#fff" fillOpacity="0.95"/>
+    <rect x="5" y="4" width="14" height="3.5" rx="1.5" fill="#E8E8E8"/>
+    {/* Spiral binding holes */}
+    <circle cx="8" cy="5.5" r="0.7" fill="#90BE6D"/>
+    <circle cx="11" cy="5.5" r="0.7" fill="#90BE6D"/>
+    <circle cx="14" cy="5.5" r="0.7" fill="#90BE6D"/>
+    <circle cx="17" cy="5.5" r="0.7" fill="#90BE6D"/>
+    {/* Text lines */}
+    <path d="M7.5 10h9M7.5 12.5h9M7.5 15h6M7.5 17.5h7.5" stroke="#B0B0B0" strokeWidth="0.9" strokeLinecap="round"/>
+    {/* Green chameleon accent */}
+    <circle cx="17" cy="17" r="2.5" fill="#5D9A2B" fillOpacity="0.8"/>
+    <circle cx="17.5" cy="16.5" r="0.6" fill="#fff"/>
+  </svg>
+)
+
+/* Adobe Creative Cloud — The iconic red "A" triangle */
+const IconAdobe: FC<SVGProps<SVGSVGElement>> = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...p}>
+    <rect width="24" height="24" rx="5" fill="#FF0000"/>
+    {/* Left triangle */}
+    <path d="M4 19V5l8 14H4z" fill="#fff"/>
+    {/* Right triangle */}
+    <path d="M20 19V5l-8 14h8z" fill="#fff"/>
+    {/* Center cutout / "A" crossbar */}
+    <path d="M12 10l3 6h-3.5l-1-2.5L12 10z" fill="#FF0000"/>
   </svg>
 )
 

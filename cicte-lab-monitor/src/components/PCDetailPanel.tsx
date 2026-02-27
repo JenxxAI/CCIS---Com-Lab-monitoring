@@ -259,7 +259,7 @@ export function PCDetailPanel() {
                     : 'bg-slate-50 border-slate-100 hover:border-slate-200'
                 )}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                <Icon className="w-5 h-5 flex-shrink-0 rounded-[3px]" />
                 <span className={cn(
                   'text-[10px] leading-tight truncate',
                   dark ? 'text-slate-300' : 'text-slate-600'
@@ -340,7 +340,7 @@ export function PCDetailPanel() {
                           installed && (dark ? 'bg-dark-surfaceAlt' : 'bg-blue-50/60'),
                         )}
                       >
-                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <Icon className="w-6 h-6 flex-shrink-0 rounded" />
                         <div className="flex-1 min-w-0">
                           <div className={cn(
                             'text-[11px] font-medium truncate',
