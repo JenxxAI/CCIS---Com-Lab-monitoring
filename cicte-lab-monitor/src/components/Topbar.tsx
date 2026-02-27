@@ -1,11 +1,12 @@
-import { Menu, Sun, Moon, Bell } from 'lucide-react'
-import { useThemeStore, useLabStore, useNotifStore } from '@/store'
+import { Menu, Sun, Moon, Bell, LogOut } from 'lucide-react'
+import { useThemeStore, useLabStore, useNotifStore, useAuthStore } from '@/store'
 import { cn } from '@/lib/utils'
 
 export function Topbar() {
   const { dark, sidebarOpen: _sidebarOpen, toggleDark, toggleSidebar } = useThemeStore()
   const { labData } = useLabStore()
   const { notifications, markAllRead } = useNotifStore()
+  const { user, logout } = useAuthStore()
 
   const allPCs     = Object.values(labData).flat()
   const total      = allPCs.length
@@ -131,6 +132,39 @@ export function Topbar() {
       >
         {dark ? <Sun size={15} /> : <Moon size={15} />}
       </button>
+
+      {/* User info + Logout */}
+      {user && (
+        <div className="flex items-center gap-1.5">
+          <div className={cn(
+            'hidden sm:flex flex-col items-end mr-1',
+          )}>
+            <span className={cn('text-[11px] font-medium leading-tight', dark ? 'text-slate-300' : 'text-slate-700')}>
+              {user.name}
+            </span>
+            <span className={cn(
+              'text-[9px] uppercase tracking-wider font-semibold leading-tight',
+              user.role === 'admin'
+                ? 'text-[#5b7fff]'
+                : (dark ? 'text-slate-600' : 'text-slate-400')
+            )}>
+              {user.role}
+            </span>
+          </div>
+          <button
+            onClick={logout}
+            title="Sign out"
+            className={cn(
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors border',
+              dark
+                ? 'text-slate-400 hover:text-rose-400 hover:bg-dark-surfaceAlt border-dark-border bg-dark-surfaceAlt'
+                : 'text-slate-500 hover:text-rose-500 hover:bg-slate-100 border-slate-200 bg-slate-50'
+            )}
+          >
+            <LogOut size={14} />
+          </button>
+        </div>
+      )}
     </header>
   )
 }

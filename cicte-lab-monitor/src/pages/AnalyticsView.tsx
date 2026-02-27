@@ -6,6 +6,21 @@ import { useLabStore, useThemeStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { COND_HEX, COND_META } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { Download, Printer } from 'lucide-react'
+
+// ─── CSV Export Helper ───────────────────────────────────────────────────────
+
+function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const csv = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export function AnalyticsView() {
   const { dark } = useThemeStore()
@@ -26,7 +41,36 @@ export function AnalyticsView() {
     const occupied    = ps.filter(p => p.status === 'occupied').length
     const maintenance = ps.filter(p => p.status === 'maintenance').length
     return { total: ps.length, available, occupied, maintenance,
-      availablePct: Math.round(available / ps.length * 100) }
+      availablePct: ps.length > 0 ? Math.round(available / ps.length * 100) : 0 }
+  }
+
+  // ── Export handlers ────────────────────────────────────────────────────────
+
+  const exportLabSummaryCSV = () => {
+    const headers = ['Lab', 'Total PCs', 'Available', 'Occupied', 'Maintenance', 'Available %']
+    const rows = LABS.map(l => {
+      const s = labStats(l.id)
+      return [l.name, String(s.total), String(s.available), String(s.occupied), String(s.maintenance), `${s.availablePct}%`]
+    })
+    rows.push(['— Total —', String(g.total), String(g.available), String(g.occupied), String(g.maintenance), `${g.total > 0 ? Math.round(g.available / g.total * 100) : 0}%`])
+    downloadCSV(`lab-summary-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
+  const exportAllPCsCSV = () => {
+    const headers = ['Lab', 'PC #', 'Status', 'Condition', 'CPU', 'RAM', 'Storage', 'OS', 'Last Student', 'Last Used', 'Repairs']
+    const rows = allPCs.map(p => {
+      const lab = LABS.find(l => l.id === p.labId)
+      return [
+        lab?.name ?? p.labId, String(p.num), p.status, p.condition,
+        p.specs.cpu, p.specs.ram, p.specs.storage, p.specs.os,
+        p.lastStudent, p.lastUsed, String(p.repairs.length),
+      ]
+    })
+    downloadCSV(`all-pcs-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   // Data for bar chart
@@ -53,13 +97,52 @@ export function AnalyticsView() {
 
   return (
     <div className="p-3 sm:p-6 animate-fade-in">
-      <div className="mb-4 sm:mb-5">
-        <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
-          Analytics
-        </h1>
-        <p className={cn('text-[12px] mt-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
-          System-wide overview — 9 laboratories
-        </p>
+      <div className="mb-4 sm:mb-5 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
+        <div>
+          <h1 className={cn('text-xl font-bold', dark ? 'text-slate-100' : 'text-slate-900')}>
+            Analytics
+          </h1>
+          <p className={cn('text-[12px] mt-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
+            System-wide overview — {LABS.length} laboratories
+          </p>
+        </div>
+
+        {/* Export / Print buttons */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={exportLabSummaryCSV}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all',
+              dark ? 'bg-dark-surfaceAlt border border-dark-border text-slate-400 hover:text-emerald-400'
+                   : 'bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 shadow-sm',
+            )}
+          >
+            <Download size={12} />
+            Lab Summary CSV
+          </button>
+          <button
+            onClick={exportAllPCsCSV}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all',
+              dark ? 'bg-dark-surfaceAlt border border-dark-border text-slate-400 hover:text-emerald-400'
+                   : 'bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 shadow-sm',
+            )}
+          >
+            <Download size={12} />
+            All PCs CSV
+          </button>
+          <button
+            onClick={handlePrint}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all',
+              dark ? 'bg-dark-surfaceAlt border border-dark-border text-slate-400 hover:text-[#5b7fff]'
+                   : 'bg-white border border-slate-200 text-slate-500 hover:text-blue-600 shadow-sm',
+            )}
+          >
+            <Printer size={12} />
+            Print
+          </button>
+        </div>
       </div>
 
       {/* Top stat cards */}

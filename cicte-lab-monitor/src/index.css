@@ -40,3 +40,44 @@
   .accent      { color: #5b7fff; }
   .light .accent { color: #3a5cf5; }
 }
+
+/* ─── Print styles ────────────────────────────────────────────────────────── */
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide non-printable UI elements */
+  header, aside, nav,
+  [class*="Topbar"],
+  [class*="Sidebar"],
+  [class*="SubNav"],
+  button {
+    display: none !important;
+  }
+
+  /* Full width for main content */
+  main, main > div {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Let charts and cards flow naturally */
+  .overflow-hidden,
+  .overflow-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Ensure charts print at a readable size */
+  .recharts-wrapper {
+    page-break-inside: avoid;
+  }
+}

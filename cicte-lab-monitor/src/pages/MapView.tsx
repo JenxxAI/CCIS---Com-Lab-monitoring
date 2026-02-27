@@ -1,18 +1,22 @@
-import { useLabStore, useThemeStore, useLayoutStore } from '@/store'
+import { useLabStore, useThemeStore, useLayoutStore, useAuthStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { DragDropFloorPlan } from '@/components/DragDropFloorPlan'
+import { ZoomPanWrapper } from '@/components/floorplan/ZoomPanWrapper'
+import { CANVAS_W, CANVAS_H } from '@/components/floorplan/constants'
 import { COND_HEX, COND_META } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { PCStatus } from '@/types'
+import type { PCStatus, StatusFilter } from '@/types'
+import { Monitor } from 'lucide-react'
 
 export function MapView() {
   const { dark } = useThemeStore()
   const {
-    activeLab, labData, selectedPC,
+    activeLab, labData, selectedPC, isLoading,
     setSelectedPC, statusFilter, condFilter: _condFilter,
     setStatusFilter, setCondFilter: _setCondFilter,
   } = useLabStore()
   const { editMode, setEditMode, resetLayout } = useLayoutStore()
+  const isAdmin = useAuthStore(s => s.isAdmin)
 
   const lab  = LABS.find(l => l.id === activeLab)!
   const pcs  = labData[activeLab] ?? []
@@ -39,27 +43,29 @@ export function MapView() {
             </p>
           </div>
 
-          {/* Edit Layout toggle */}
-          <button
-            onClick={() => setEditMode(!editMode)}
-            className={cn(
-              'px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150',
-              editMode
-                ? 'text-white shadow-md'
-                : (dark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'),
-            )}
-            style={{
-              background: editMode
-                ? accent
-                : (dark ? '#1a2030' : '#f0f4ff'),
-              border: `1px solid ${editMode ? accent : (dark ? '#232b3e' : '#dde3f0')}`,
-            }}
-          >
-            {editMode ? '✓ Done Editing' : '✎ Edit Layout'}
-          </button>
+          {/* Edit Layout toggle — admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150',
+                editMode
+                  ? 'text-white shadow-md'
+                  : (dark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'),
+              )}
+              style={{
+                background: editMode
+                  ? accent
+                  : (dark ? '#1a2030' : '#f0f4ff'),
+                border: `1px solid ${editMode ? accent : (dark ? '#232b3e' : '#dde3f0')}`,
+              }}
+            >
+              {editMode ? '✓ Done Editing' : '✎ Edit Layout'}
+            </button>
+          )}
 
-          {/* Reset layout */}
-          {editMode && (
+          {/* Reset layout — admin only */}
+          {isAdmin && editMode && (
             <button
               onClick={() => { resetLayout(activeLab); }}
               className={cn(
@@ -82,7 +88,7 @@ export function MapView() {
             const active = statusFilter === opt.value
             return (
               <button key={opt.value}
-                onClick={() => setStatusFilter(opt.value as any)}
+                onClick={() => setStatusFilter(opt.value as StatusFilter)}
                 className="px-3 py-1 rounded-full text-[11px] font-medium transition-all duration-150"
                 style={{
                   background: active
@@ -104,16 +110,46 @@ export function MapView() {
       </div>
 
       {/* Floor plan — drag & drop canvas, scrollable horizontally on mobile */}
-      <div className="overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
-        <DragDropFloorPlan
-          labId={activeLab}
-          labName={lab.name}
-          pcs={pcs}
-          selectedPC={selectedPC}
-          statusFilter={statusFilter as PCStatus | 'all'}
-          onSelect={(pc) => setSelectedPC(pc)}
-        />
-      </div>
+      {isLoading ? (
+        /* ── Loading state ───────────────────────────────────────────── */
+        <div className={cn(
+          'flex flex-col items-center justify-center rounded-2xl border h-[360px] sm:h-[520px]',
+          dark ? 'bg-dark-mapBg border-dark-border' : 'bg-slate-100 border-slate-200',
+        )}>
+          <div className="w-8 h-8 border-2 border-current border-t-transparent rounded-full animate-spin opacity-30 mb-3" />
+          <p className={cn('text-sm', dark ? 'text-slate-600' : 'text-slate-400')}>
+            Loading workstations…
+          </p>
+        </div>
+      ) : pcs.length === 0 ? (
+        /* ── Empty state ─────────────────────────────────────────────── */
+        <div className={cn(
+          'flex flex-col items-center justify-center rounded-2xl border h-[360px] sm:h-[520px] gap-3',
+          dark ? 'bg-dark-mapBg border-dark-border' : 'bg-slate-100 border-slate-200',
+        )}>
+          <Monitor className={cn('w-12 h-12', dark ? 'text-slate-700' : 'text-slate-300')} />
+          <p className={cn('text-sm font-medium', dark ? 'text-slate-500' : 'text-slate-400')}>
+            No workstations in this lab
+          </p>
+          <p className={cn('text-xs max-w-[260px] text-center', dark ? 'text-slate-600' : 'text-slate-400')}>
+            PCs will appear here once the backend reports data for {lab.name}.
+          </p>
+        </div>
+      ) : (
+        /* ── Floor plan canvas ───────────────────────────────────────── */
+        <div className="-mx-3 px-3 sm:mx-0 sm:px-0">
+          <ZoomPanWrapper canvasW={CANVAS_W} canvasH={CANVAS_H} dark={dark}>
+            <DragDropFloorPlan
+              labId={activeLab}
+              labName={lab.name}
+              pcs={pcs}
+              selectedPC={selectedPC}
+              statusFilter={statusFilter as PCStatus | 'all'}
+              onSelect={(pc) => setSelectedPC(pc)}
+            />
+          </ZoomPanWrapper>
+        </div>
+      )}
 
       {/* Condition legend */}
       <div className="flex items-center gap-3 sm:gap-4 mt-4 flex-wrap">

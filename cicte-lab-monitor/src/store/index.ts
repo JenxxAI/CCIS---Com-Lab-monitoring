@@ -24,6 +24,45 @@ export const useThemeStore = create<ThemeStore>()(
   )
 )
 
+// ─── Auth Store (persisted) ───────────────────────────────────────────────────
+
+export type UserRole = 'admin' | 'viewer'
+
+export interface AuthUser {
+  id:       string
+  username: string
+  role:     UserRole
+  name:     string
+}
+
+interface AuthStore {
+  token:    string | null
+  user:     AuthUser | null
+  isAdmin:  boolean
+
+  login:    (token: string, user: AuthUser) => void
+  logout:   () => void
+}
+
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set) => ({
+      token:   null,
+      user:    null,
+      isAdmin: false,
+
+      login: (token, user) => set({
+        token,
+        user,
+        isAdmin: user.role === 'admin',
+      }),
+
+      logout: () => set({ token: null, user: null, isAdmin: false }),
+    }),
+    { name: 'cicte-auth' }
+  )
+)
+
 // ─── Lab / PC Store ───────────────────────────────────────────────────────────
 
 interface LabStore {
@@ -34,6 +73,7 @@ interface LabStore {
   statusFilter: StatusFilter
   condFilter:   ConditionFilter
   searchQuery:  string
+  isLoading:    boolean
 
   setActiveLab:    (id: string)     => void
   setSelectedPC:   (pc: PC | null)  => void
@@ -42,9 +82,11 @@ interface LabStore {
   setCondFilter:   (f: ConditionFilter) => void
   setSearchQuery:  (q: string)      => void
   updatePC:        (pc: PC)         => void
+  setLabPCs:       (labId: string, pcs: PC[]) => void
+  loadLabData:     (labId: string)  => Promise<void>
 }
 
-export const useLabStore = create<LabStore>()((set) => ({
+export const useLabStore = create<LabStore>()((set, get) => ({
   labData:      generateAllLabData(),
   activeLab:    'cl1',
   selectedPC:   null,
@@ -52,8 +94,12 @@ export const useLabStore = create<LabStore>()((set) => ({
   statusFilter: 'all',
   condFilter:   'all',
   searchQuery:  '',
+  isLoading:    false,
 
-  setActiveLab: (id) => set({ activeLab: id, selectedPC: null }),
+  setActiveLab: (id) => {
+    set({ activeLab: id, selectedPC: null })
+    get().loadLabData(id)
+  },
   setSelectedPC: (pc) => set(s => ({
     selectedPC: s.selectedPC?.id === pc?.id ? null : pc,
   })),
@@ -65,12 +111,36 @@ export const useLabStore = create<LabStore>()((set) => ({
   updatePC: (updated) => set(s => ({
     labData: {
       ...s.labData,
-      [updated.labId]: s.labData[updated.labId].map(p =>
+      [updated.labId]: (s.labData[updated.labId] ?? []).map(p =>
         p.id === updated.id ? updated : p
       ),
     },
     selectedPC: s.selectedPC?.id === updated.id ? updated : s.selectedPC,
   })),
+
+  setLabPCs: (labId, pcs) => set(s => ({
+    labData: { ...s.labData, [labId]: pcs },
+  })),
+
+  loadLabData: async (labId) => {
+    try {
+      set({ isLoading: true })
+      const token = useAuthStore.getState().token
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const res = await fetch(`/api/labs/${labId}/pcs`, { headers })
+      if (res.ok) {
+        const pcs: PC[] = await res.json()
+        set(s => ({ labData: { ...s.labData, [labId]: pcs }, isLoading: false }))
+      } else {
+        set({ isLoading: false })
+      }
+    } catch {
+      // API not available — keep using in-memory mock data
+      set({ isLoading: false })
+    }
+  },
 }))
 
 // ─── Notifications Store ──────────────────────────────────────────────────────
@@ -82,24 +152,29 @@ interface NotifStore {
   clearAll:      () => void
 }
 
-export const useNotifStore = create<NotifStore>()((set) => ({
-  notifications: [],
-  addNotif: (n) => set(s => ({
-    notifications: [
-      {
-        ...n,
-        id:        Math.random().toString(36).slice(2),
-        timestamp: new Date().toISOString(),
-        read:      false,
-      },
-      ...s.notifications,
-    ].slice(0, 50), // keep max 50
-  })),
-  markAllRead: () => set(s => ({
-    notifications: s.notifications.map(n => ({ ...n, read: true })),
-  })),
-  clearAll: () => set({ notifications: [] }),
-}))
+export const useNotifStore = create<NotifStore>()(
+  persist(
+    (set) => ({
+      notifications: [],
+      addNotif: (n) => set(s => ({
+        notifications: [
+          {
+            ...n,
+            id:        Math.random().toString(36).slice(2),
+            timestamp: new Date().toISOString(),
+            read:      false,
+          },
+          ...s.notifications,
+        ].slice(0, 50), // keep max 50
+      })),
+      markAllRead: () => set(s => ({
+        notifications: s.notifications.map(n => ({ ...n, read: true })),
+      })),
+      clearAll: () => set({ notifications: [] }),
+    }),
+    { name: 'cicte-notifications' }
+  )
+)
 
 // ─── Layout Store (persisted) ─────────────────────────────────────────────────
 
