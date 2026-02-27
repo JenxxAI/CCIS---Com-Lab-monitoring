@@ -4,6 +4,7 @@ import { Topbar } from '@/components/Topbar'
 import { Sidebar } from '@/components/Sidebar'
 import { PCDetailPanel } from '@/components/PCDetailPanel'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ToastContainer } from '@/components/Toast'
 import { LoginPage } from '@/pages/LoginPage'
 import { useThemeStore, useLabStore, useAuthStore } from '@/store'
 import { useSocket } from '@/hooks/useSocket'
@@ -141,6 +142,8 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      <ToastContainer />
     </div>
   )
 }

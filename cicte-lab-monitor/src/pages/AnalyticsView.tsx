@@ -3,6 +3,7 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts'
 import { useLabStore, useThemeStore } from '@/store'
+import { toast } from '@/store/toast'
 import { LABS } from '@/lib/data'
 import { COND_HEX, COND_META } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -54,6 +55,7 @@ export function AnalyticsView() {
     })
     rows.push(['— Total —', String(g.total), String(g.available), String(g.occupied), String(g.maintenance), `${g.total > 0 ? Math.round(g.available / g.total * 100) : 0}%`])
     downloadCSV(`lab-summary-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+    toast.success('Lab summary exported')
   }
 
   const exportAllPCsCSV = () => {
@@ -67,6 +69,7 @@ export function AnalyticsView() {
       ]
     })
     downloadCSV(`all-pcs-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+    toast.success('All PCs data exported')
   }
 
   const handlePrint = () => {

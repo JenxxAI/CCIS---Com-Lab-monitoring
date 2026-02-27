@@ -1,4 +1,5 @@
 import { useLabStore, useThemeStore, useLayoutStore, useAuthStore } from '@/store'
+import { toast } from '@/store/toast'
 import { LABS } from '@/lib/data'
 import { DragDropFloorPlan } from '@/components/DragDropFloorPlan'
 import { ZoomPanWrapper } from '@/components/floorplan/ZoomPanWrapper'
@@ -46,7 +47,7 @@ export function MapView() {
           {/* Edit Layout toggle — admin only */}
           {isAdmin && (
             <button
-              onClick={() => setEditMode(!editMode)}
+              onClick={() => { setEditMode(!editMode); toast.info(editMode ? 'Layout saved' : 'Edit mode enabled') }}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150',
                 editMode
@@ -67,7 +68,7 @@ export function MapView() {
           {/* Reset layout — admin only */}
           {isAdmin && editMode && (
             <button
-              onClick={() => { resetLayout(activeLab); }}
+              onClick={() => { resetLayout(activeLab); toast.warning('Layout reset to default') }}
               className={cn(
                 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all',
                 dark ? 'bg-dark-surfaceAlt border border-dark-border text-slate-400 hover:text-red-400'

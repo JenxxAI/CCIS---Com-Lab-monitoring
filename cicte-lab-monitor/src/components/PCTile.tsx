@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
 import type { PC } from '@/types'
@@ -10,7 +11,7 @@ interface PCTileProps {
   accent:     string   // theme accent hex
 }
 
-export function PCTile({ pc, isSelected, dimmed, onSelect, accent }: PCTileProps) {
+export const PCTile = memo(function PCTile({ pc, isSelected, dimmed, onSelect, accent }: PCTileProps) {
   const statusColor = STATUS_HEX[pc.status]
   const statusBg    = STATUS_BG_HEX[pc.status]
   const condColor   = COND_HEX[pc.condition]
@@ -52,7 +53,7 @@ export function PCTile({ pc, isSelected, dimmed, onSelect, accent }: PCTileProps
       />
     </button>
   )
-}
+})
 
 // Empty placeholder tile (for alignment)
 export function PCTilePlaceholder() {

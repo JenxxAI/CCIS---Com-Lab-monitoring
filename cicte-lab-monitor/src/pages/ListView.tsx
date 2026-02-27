@@ -1,9 +1,28 @@
+import { useState } from 'react'
 import { useLabStore, useThemeStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { Badge } from '@/components/Badge'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX, COND_META, STATUS_META } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Search } from 'lucide-react'
+import { Search, ChevronUp, ChevronDown } from 'lucide-react'
+import type { PC } from '@/types'
+
+type SortKey = 'num' | 'status' | 'condition' | 'lastStudent' | 'lastUsed' | 'lastPasswordChangedBy' | 'repairs'
+type SortDir = 'asc' | 'desc'
+
+function comparePCs(a: PC, b: PC, key: SortKey, dir: SortDir): number {
+  let cmp = 0
+  switch (key) {
+    case 'num':                    cmp = a.num - b.num; break
+    case 'status':                 cmp = a.status.localeCompare(b.status); break
+    case 'condition':              cmp = a.condition.localeCompare(b.condition); break
+    case 'lastStudent':            cmp = a.lastStudent.localeCompare(b.lastStudent); break
+    case 'lastUsed':               cmp = a.lastUsed.localeCompare(b.lastUsed); break
+    case 'lastPasswordChangedBy':  cmp = a.lastPasswordChangedBy.localeCompare(b.lastPasswordChangedBy); break
+    case 'repairs':                cmp = a.repairs.length - b.repairs.length; break
+  }
+  return dir === 'asc' ? cmp : -cmp
+}
 
 export function ListView() {
   const { dark } = useThemeStore()
@@ -26,7 +45,26 @@ export function ListView() {
     return true
   })
 
-  const headers = ['PC', 'Status', 'Condition', 'Last Student', 'Last Used', 'Changed By', 'Repairs']
+  // Sortable columns
+  const [sortKey, setSortKey] = useState<SortKey>('num')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const sorted = [...filtered].sort((a, b) => comparePCs(a, b, sortKey, sortDir))
+
+  const columns: { label: string; key: SortKey }[] = [
+    { label: 'PC',         key: 'num' },
+    { label: 'Status',     key: 'status' },
+    { label: 'Condition',  key: 'condition' },
+    { label: 'Last Student', key: 'lastStudent' },
+    { label: 'Last Used',    key: 'lastUsed' },
+    { label: 'Changed By',   key: 'lastPasswordChangedBy' },
+    { label: 'Repairs',      key: 'repairs' },
+  ]
 
   return (
     <div className="p-3 sm:p-6 animate-fade-in">
@@ -92,18 +130,32 @@ export function ListView() {
         <table className="w-full border-collapse">
           <thead>
             <tr className={cn(dark ? 'bg-dark-surfaceAlt' : 'bg-slate-50')}>
-              {headers.map(h => (
-                <th key={h} className={cn(
-                  'px-4 py-3 text-left text-[10px] font-semibold tracking-wider uppercase border-b',
-                  dark ? 'text-slate-600 border-dark-border' : 'text-slate-400 border-slate-200'
-                )}>
-                  {h}
-                </th>
-              ))}
+              {columns.map(col => {
+                const isActive = sortKey === col.key
+                return (
+                  <th
+                    key={col.key}
+                    onClick={() => toggleSort(col.key)}
+                    className={cn(
+                      'px-4 py-3 text-left text-[10px] font-semibold tracking-wider uppercase border-b cursor-pointer select-none transition-colors',
+                      dark ? 'border-dark-border hover:text-slate-400' : 'border-slate-200 hover:text-slate-600',
+                      isActive ? (dark ? 'text-slate-300' : 'text-slate-700') : (dark ? 'text-slate-600' : 'text-slate-400'),
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {col.label}
+                      {isActive && (sortDir === 'asc'
+                        ? <ChevronUp size={12} className="opacity-70" />
+                        : <ChevronDown size={12} className="opacity-70" />
+                      )}
+                    </span>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
-            {filtered.map(pc => {
+            {sorted.map(pc => {
               const isSel = selectedPC?.id === pc.id
               const cc    = COND_META[pc.condition]
               return (
@@ -179,7 +231,7 @@ export function ListView() {
             No PCs match the current filters.
           </div>
         )}
-        {filtered.map(pc => {
+        {sorted.map(pc => {
           const isSel = selectedPC?.id === pc.id
           const cc    = COND_META[pc.condition]
           return (
