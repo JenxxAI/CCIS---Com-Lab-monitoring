@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { useLabStore, useNotifStore } from '@/store'
 import type { PC } from '@/types'
+import { env } from '@/lib/env'
 
 // ─── Real-time socket hook ────────────────────────────────────────────────────
 // Connects to the backend Socket.io server and keeps PC state in sync.
@@ -14,7 +15,7 @@ export function useSocket() {
 
   useEffect(() => {
     // Only connect if a backend URL is configured
-    const url = import.meta.env.VITE_SOCKET_URL
+    const url = env.socketUrl
     if (!url) return
 
     const socket = io(url, {

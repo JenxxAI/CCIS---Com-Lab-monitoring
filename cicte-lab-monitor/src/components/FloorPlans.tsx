@@ -1,3 +1,4 @@
+import React from 'react'
 import { PCTile } from './PCTile'
 import { useThemeStore } from '@/store'
 import type { PC, PCStatus } from '@/types'
@@ -5,7 +6,9 @@ import { cn } from '@/lib/utils'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-function AirconBadge({ t, rotate = false }: { t: any; rotate?: boolean }) {
+interface ThemeCtx { dark: boolean }
+
+function AirconBadge({ t, rotate = false }: { t: ThemeCtx; rotate?: boolean }) {
   return (
     <div
       className={cn(
@@ -21,7 +24,7 @@ function AirconBadge({ t, rotate = false }: { t: any; rotate?: boolean }) {
   )
 }
 
-function ServerUnit({ t }: { t: any }) {
+function ServerUnit({ t }: { t: ThemeCtx }) {
   return (
     <div className={cn(
       'w-[50px] rounded-md p-1 flex flex-col gap-1',
@@ -44,7 +47,7 @@ function ServerUnit({ t }: { t: any }) {
   )
 }
 
-function TowerUnit({ t }: { t: any }) {
+function TowerUnit({ t }: { t: ThemeCtx }) {
   return (
     <div className={cn(
       'w-[50px] rounded-md p-1.5 flex flex-col gap-1.5',
@@ -69,7 +72,7 @@ function TowerUnit({ t }: { t: any }) {
 }
 
 function ClusterBox({ children, t, horizontal = false, gap = 7 }: {
-  children: React.ReactNode; t: any; horizontal?: boolean; gap?: number
+  children: React.ReactNode; t: ThemeCtx; horizontal?: boolean; gap?: number
 }) {
   return (
     <div
@@ -103,34 +106,33 @@ export function FloorPlanCL123({ labName, pcs, selectedPC, statusFilter, onSelec
   const t = { dark }
   const accent = dark ? '#5b7fff' : '#3a5cf5'
 
-  let i = 0
-  const take = (n: number) => { const s = pcs.slice(i, i + n); i += n; return s }
+  const slice = (start: number, n: number) => pcs.slice(start, start + n)
 
-  const topL  = take(3); const topR  = take(3)
-  const mA_r1 = take(4); const mA_r2 = take(4); const mA_ins = take(1)
-  const mB_r1 = take(4); const mB_r2 = take(4); const mB_ins = take(1)
-  const botL  = take(3); const botR  = take(3)
+  const topL  = slice(0, 3);  const topR  = slice(3, 3)
+  const mA_r1 = slice(6, 4);  const mA_r2 = slice(10, 4); const mA_ins = slice(14, 1)
+  const mB_r1 = slice(15, 4); const mB_r2 = slice(19, 4); const mB_ins = slice(23, 1)
+  const botL  = slice(24, 3); const botR  = slice(27, 3)
 
   const dim = (pc: PC) => statusFilter !== 'all' && pc.status !== statusFilter
 
-  const T = ({ pc }: { pc: PC }) => (
+  const tile = (pc: PC) => (
     <PCTile pc={pc} isSelected={selectedPC?.id === pc.id}
       dimmed={dim(pc)} onSelect={onSelect} accent={accent} />
   )
 
-  const Row = ({ arr }: { arr: PC[] }) => (
-    <div className="flex gap-1.5">{arr.map((pc, i) => <T key={i} pc={pc} />)}</div>
+  const row = (arr: PC[]) => (
+    <div className="flex gap-1.5">{arr.map((pc, i) => <React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</div>
   )
 
-  const DblCluster = ({ r1, r2, ins }: { r1: PC[]; r2: PC[]; ins: PC[] }) => (
+  const dblCluster = (r1: PC[], r2: PC[], ins: PC[]) => (
     <div className="flex items-center gap-2">
       <div className="flex flex-col items-center gap-1">
         <span className={cn('text-[7px] tracking-wider', dark ? 'text-slate-600' : 'text-slate-400')}>Instr.</span>
-        <T pc={ins[0]} />
+        {tile(ins[0])}
       </div>
       <ClusterBox t={t}>
-        <Row arr={r1} />
-        <Row arr={r2} />
+        {row(r1)}
+        {row(r2)}
       </ClusterBox>
     </div>
   )
@@ -160,14 +162,14 @@ export function FloorPlanCL123({ labName, pcs, selectedPC, statusFilter, onSelec
         {/* Center */}
         <div className="flex flex-col gap-4">
           <div className="flex gap-2.5">
-            <ClusterBox t={t} horizontal gap={6}>{topL.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
-            <ClusterBox t={t} horizontal gap={6}>{topR.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{topL.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{topR.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
           </div>
-          <DblCluster r1={mA_r1} r2={mA_r2} ins={mA_ins} />
-          <DblCluster r1={mB_r1} r2={mB_r2} ins={mB_ins} />
+          {dblCluster(mA_r1, mA_r2, mA_ins)}
+          {dblCluster(mB_r1, mB_r2, mB_ins)}
           <div className="flex gap-2.5">
-            <ClusterBox t={t} horizontal gap={6}>{botL.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
-            <ClusterBox t={t} horizontal gap={6}>{botR.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{botL.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{botR.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
           </div>
         </div>
 
@@ -207,20 +209,19 @@ export function FloorPlanCL45({ labName, pcs, selectedPC, statusFilter, onSelect
   const t = { dark }
   const accent = dark ? '#5b7fff' : '#3a5cf5'
 
-  let i = 0
-  const take = (n: number) => { const s = pcs.slice(i, i + n); i += n; return s }
+  const slice = (start: number, n: number) => pcs.slice(start, start + n)
 
-  const topL   = take(3); const topR = take(4)
-  const midR1  = take(4); const midR2 = take(4); const midIns = take(1)
-  const botL   = take(3); const botR  = take(3)
+  const topL   = slice(0, 3);  const topR  = slice(3, 4)
+  const midR1  = slice(7, 4);  const midR2 = slice(11, 4); const midIns = slice(15, 1)
+  const botL   = slice(16, 3); const botR  = slice(19, 3)
 
   const dim = (pc: PC) => statusFilter !== 'all' && pc.status !== statusFilter
-  const T = ({ pc }: { pc: PC }) => (
+  const tile = (pc: PC) => (
     <PCTile pc={pc} isSelected={selectedPC?.id === pc.id}
       dimmed={dim(pc)} onSelect={onSelect} accent={accent} />
   )
-  const Row = ({ arr }: { arr: PC[] }) => (
-    <div className="flex gap-1.5">{arr.map((pc,i) => <T key={i} pc={pc} />)}</div>
+  const row = (arr: PC[]) => (
+    <div className="flex gap-1.5">{arr.map((pc,i) => <React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</div>
   )
 
   return (
@@ -253,8 +254,8 @@ export function FloorPlanCL45({ labName, pcs, selectedPC, statusFilter, onSelect
         <div className="flex flex-col gap-4">
           {/* Top row */}
           <div className="flex gap-2.5">
-            <ClusterBox t={t} horizontal gap={6}>{topL.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
-            <ClusterBox t={t} horizontal gap={6}>{topR.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{topL.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{topR.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
           </div>
           {/* Middle: tower column + student rows */}
           <div className="flex items-center gap-2.5">
@@ -262,20 +263,20 @@ export function FloorPlanCL45({ labName, pcs, selectedPC, statusFilter, onSelect
               dark ? 'bg-dark-serverBg border border-dark-border' : 'bg-slate-200 border border-slate-300')}>
               {[0,1,2].map(i => <TowerUnit key={i} t={t} />)}
               <div className="flex flex-col items-center gap-1 mt-1">
-                <T pc={midIns[0]} />
+                {tile(midIns[0])}
                 <span className={cn('text-[7px] tracking-wide',
                   dark ? 'text-slate-600' : 'text-slate-400')}>Instr.</span>
               </div>
             </div>
             <ClusterBox t={t}>
-              <Row arr={midR1} />
-              <Row arr={midR2} />
+              {row(midR1)}
+              {row(midR2)}
             </ClusterBox>
           </div>
           {/* Bottom row */}
           <div className="flex gap-2.5">
-            <ClusterBox t={t} horizontal gap={6}>{botL.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
-            <ClusterBox t={t} horizontal gap={6}>{botR.map((pc,i)=><T key={i} pc={pc}/>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{botL.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
+            <ClusterBox t={t} horizontal gap={6}>{botR.map((pc,i)=><React.Fragment key={i}>{tile(pc)}</React.Fragment>)}</ClusterBox>
           </div>
         </div>
 

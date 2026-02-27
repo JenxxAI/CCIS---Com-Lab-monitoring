@@ -2,46 +2,19 @@ import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { PCTile } from './PCTile'
 import { useThemeStore, useLayoutStore } from '@/store'
 import { GENERIC_GRIDS } from '@/lib/data'
-import type { PC, PCStatus, Position, FurnitureItem, FurnitureType } from '@/types'
+import type { PC, PCStatus, Position, FurnitureItem } from '@/types'
 import { cn } from '@/lib/utils'
+import {
+  GRID_FINE, GRID_COARSE, PC_GRID_W, PC_GRID_H,
+  TILE_W, TILE_H, CANVAS_W, CANVAS_H, PAD,
+  ALIGN_THRESHOLD, snapTo, clamp,
+  type GridMode, type AlignGuide, type DistLabel, type DragState,
+} from './floorplan/constants'
+import { FurnIcon } from './floorplan/FurnIcon'
+import { AlignmentOverlay } from './floorplan/AlignmentOverlay'
+import { EditToolbar } from './floorplan/EditToolbar'
 
-/* ─── Constants ──────────────────────────────────────────────────────────── */
-
-const GRID_FINE   = 10
-const GRID_COARSE = 20
-const PC_GRID_W   = 52   // PC snap grid = tile width (44 + 8 gap)
-const PC_GRID_H   = 46   // PC snap grid = tile height (38 + 8 gap)
-const TILE_W      = 52
-const TILE_H      = 46
-const CANVAS_W    = 820
-const CANVAS_H    = 520
-const PAD         = 30
-
-const ALIGN_THRESHOLD = 6 // px proximity for alignment guide
-
-type GridMode = 'off' | 'fine' | 'coarse' | 'pc'
-
-/* ─── Helpers ────────────────────────────────────────────────────────────── */
-
-const snapTo = (v: number, grid: number) => Math.round(v / grid) * grid
-const clamp  = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
-
-/* ─── Alignment guide types ──────────────────────────────────────────────── */
-
-interface AlignGuide {
-  type: 'h' | 'v'   // horizontal or vertical line
-  pos:  number       // y for 'h', x for 'v'
-  from: number       // start coord on the other axis
-  to:   number       // end coord on the other axis
-}
-
-interface DistLabel {
-  x: number; y: number
-  dist: number
-  axis: 'h' | 'v'
-}
-
-export function getDefaultPositions(pcs: PC[], labId: string): Record<string, Position> {
+function getDefaultPositions(pcs: PC[], labId: string): Record<string, Position> {
   let cols: number
   if (['cl1', 'cl2', 'cl3'].includes(labId)) cols = 7
   else if (['cl4', 'cl5'].includes(labId))   cols = 6
@@ -57,7 +30,7 @@ export function getDefaultPositions(pcs: PC[], labId: string): Record<string, Po
   return positions
 }
 
-export function getDefaultFurniture(labId: string): FurnitureItem[] {
+function getDefaultFurniture(labId: string): FurnitureItem[] {
   return [
     { id: `${labId}-instr`,  type: 'table',   x: CANVAS_W / 2 - 65, y: CANVAS_H - 70, label: "Instructor's Station", width: 130, height: 40 },
     { id: `${labId}-door`,   type: 'door',    x: CANVAS_W - 55,     y: CANVAS_H - 70, label: 'Door',                 width: 36,  height: 50 },
@@ -65,18 +38,6 @@ export function getDefaultFurniture(labId: string): FurnitureItem[] {
     { id: `${labId}-router`, type: 'router',  x: 10,                y: 8,              label: 'Router',               width: 60,  height: 34 },
     { id: `${labId}-wifi`,   type: 'wifi',    x: 80,                y: 8,              label: 'WiFi AP',              width: 54,  height: 34 },
   ]
-}
-
-/* ─── Drag state ─────────────────────────────────────────────────────────── */
-
-interface DragState {
-  id:      string
-  kind:    'pc' | 'furniture'
-  offsetX: number
-  offsetY: number
-  pos:     Position
-  guides:  AlignGuide[]
-  dists:   DistLabel[]
 }
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
@@ -88,43 +49,6 @@ interface Props {
   selectedPC:   PC | null
   statusFilter: PCStatus | 'all'
   onSelect:     (pc: PC) => void
-}
-
-/* ─── Minimalist SVG icons ────────────────────────────────────────────────── */
-
-function FurnIcon({ type, color }: { type: string; color: string }) {
-  const s = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
-  switch (type) {
-    case 'table': return (
-      <svg {...s}><rect x="3" y="4" width="18" height="6" rx="1.5" /><line x1="5" y1="10" x2="5" y2="20" /><line x1="19" y1="10" x2="19" y2="20" /><line x1="3" y1="14" x2="21" y2="14" /></svg>
-    )
-    case 'door': return (
-      <svg {...s}><rect x="4" y="2" width="16" height="20" rx="2" /><circle cx="16" cy="12" r="1.2" fill={color} /><line x1="4" y1="22" x2="20" y2="22" /></svg>
-    )
-    case 'aircon': return (
-      <svg {...s}><rect x="2" y="4" width="20" height="10" rx="2" /><path d="M6 14v3c0 1-1 2-2 3" /><path d="M12 14v4" /><path d="M18 14v3c0 1 1 2 2 3" /><line x1="5" y1="9" x2="19" y2="9" /></svg>
-    )
-    case 'server': return (
-      <svg {...s}><rect x="3" y="2" width="18" height="7" rx="1.5" /><rect x="3" y="11" width="18" height="7" rx="1.5" /><circle cx="7" cy="5.5" r="1" fill={color} /><circle cx="7" cy="14.5" r="1" fill={color} /><line x1="11" y1="5.5" x2="17" y2="5.5" /><line x1="11" y1="14.5" x2="17" y2="14.5" /><line x1="3" y1="20" x2="8" y2="22" /><line x1="21" y1="20" x2="16" y2="22" /></svg>
-    )
-    case 'router': return (
-      <svg {...s}><rect x="2" y="12" width="20" height="8" rx="2" /><circle cx="6" cy="16" r="1" fill={color} /><circle cx="10" cy="16" r="1" fill={color} /><line x1="8" y1="12" x2="6" y2="4" /><line x1="16" y1="12" x2="18" y2="4" /><line x1="12" y1="12" x2="12" y2="6" /></svg>
-    )
-    case 'wifi': return (
-      <svg {...s}><path d="M2 8.5a16 16 0 0 1 20 0" /><path d="M5.5 12a10.5 10.5 0 0 1 13 0" /><path d="M9 15.5a5 5 0 0 1 6 0" /><circle cx="12" cy="19" r="1.2" fill={color} /></svg>
-    )
-    case 'smarttv': return (
-      <svg {...s}><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /><polyline points="7 10 10 8 13 11 17 7" /></svg>
-    )
-    default: return (
-      <svg {...s}><rect x="3" y="3" width="18" height="18" rx="3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-    )
-  }
-}
-
-const FURN_LABELS: Record<FurnitureType, string> = {
-  table: 'Table', door: 'Door', aircon: 'Aircon', server: 'Server',
-  router: 'Router', wifi: 'WiFi AP', smarttv: 'Smart TV',
 }
 
 /* ═══ Component ══════════════════════════════════════════════════════════════ */
@@ -141,6 +65,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
   const canvasRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [gridMode, setGridMode] = useState<GridMode>('pc')
+  const [selectedFurnId, setSelectedFurnId] = useState<string | null>(null)
   const dragRef  = useRef<DragState | null>(null)
   const storeRef = useRef({ layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory })
 
@@ -388,25 +313,49 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!drag, computeSnap])
 
-  /* ── Keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) ───────────────────── */
+  /* ── Keyboard shortcuts ─────────────────────────────────────────── */
+  //  Ctrl+Z undo · Ctrl+Shift+Z / Ctrl+Y redo
+  //  Delete/Backspace  remove selected furniture
+  //  Escape            deselect furniture / deselect PC / exit edit mode
 
   useEffect(() => {
     if (!editMode) return
     const handler = (e: KeyboardEvent) => {
+      // Undo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
         undo(labId)
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey)) ) {
+      }
+      // Redo
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault()
         redo(labId)
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
         e.preventDefault()
         redo(labId)
       }
+      // Delete selected furniture
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFurnId) {
+        e.preventDefault()
+        pushHistory(labId)
+        removeFurniture(labId, selectedFurnId)
+        setSelectedFurnId(null)
+      }
+      // Escape: deselect furniture → deselect PC → exit edit
+      else if (e.key === 'Escape') {
+        e.preventDefault()
+        if (selectedFurnId) {
+          setSelectedFurnId(null)
+        } else if (selectedPC) {
+          onSelect(selectedPC) // toggle off
+        } else {
+          useLayoutStore.getState().setEditMode(false)
+        }
+      }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [editMode, labId, undo, redo])
+  }, [editMode, labId, undo, redo, pushHistory, removeFurniture, selectedFurnId, selectedPC, onSelect])
 
   /* ── Add furniture helper ──────────────────────────────────────────── */
 
@@ -444,6 +393,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         'relative rounded-2xl border select-none',
         dark ? 'bg-dark-mapBg border-dark-border' : 'bg-slate-100 border-slate-200',
       )}
+      onClick={() => { if (editMode) setSelectedFurnId(null) }}
       style={{
         width: CANVAS_W,
         height: CANVAS_H,
@@ -467,43 +417,8 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         </svg>
       )}
 
-      {/* ── Alignment guides overlay ─────────────────────────────────── */}
-      {drag && drag.guides.length > 0 && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-40" style={{ overflow: 'visible' }}>
-          {drag.guides.map((g, i) => (
-            g.type === 'v'
-              ? <line key={i} x1={g.pos} y1={g.from} x2={g.pos} y2={g.to}
-                  stroke={guideColor} strokeWidth="1" strokeDasharray="3 2" opacity="0.7" />
-              : <line key={i} x1={g.from} y1={g.pos} x2={g.to} y2={g.pos}
-                  stroke={guideColor} strokeWidth="1" strokeDasharray="3 2" opacity="0.7" />
-          ))}
-        </svg>
-      )}
-
-      {/* ── Distance labels overlay ──────────────────────────────────── */}
-      {drag && drag.dists.length > 0 && (
-        <div className="absolute inset-0 pointer-events-none z-40">
-          {drag.dists.map((d, i) => (
-            <div
-              key={i}
-              className="absolute flex items-center justify-center"
-              style={{
-                left: d.x - 14, top: d.y - 6,
-                width: 28, height: 14,
-                background: guideColor,
-                borderRadius: 3,
-                fontSize: 8,
-                fontWeight: 700,
-                color: '#fff',
-                letterSpacing: 0.3,
-                lineHeight: 1,
-              }}
-            >
-              {d.dist}px
-            </div>
-          ))}
-        </div>
-      )}
+      {/* ── Alignment + distance overlays ────────────────────────────── */}
+      <AlignmentOverlay drag={drag} guideColor={guideColor} />
 
       {/* ── Lab name ──────────────────────────────────────────────────── */}
       <div className={cn(
@@ -513,83 +428,35 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         {labName}
       </div>
 
-      {/* ── Edit badge + grid toggle ──────────────────────────────────── */}
+      {/* ── Edit mode toolbar ────────────────────────────────────────── */}
       {editMode && (
-        <div className="absolute top-2 left-2 sm:left-3 flex flex-wrap items-center gap-1.5 sm:gap-2 z-30 max-w-[calc(100%-16px)]">
-          <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-medium pointer-events-none"
-            style={{ background: accent + '18', color: accent, border: `1px solid ${accent}35` }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: accent }} />
-            Drag to rearrange
+        <>
+          <EditToolbar
+            dark={dark}
+            accent={accent}
+            gridMode={gridMode}
+            setGridMode={setGridMode}
+            canUndoVal={canUndo(labId)}
+            canRedoVal={canRedo(labId)}
+            onUndo={() => undo(labId)}
+            onRedo={() => redo(labId)}
+            onAddFurniture={addNewFurniture}
+          />
+          {/* Keyboard hint */}
+          <div className={cn(
+            'absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] px-3 py-1 rounded-full pointer-events-none z-20',
+            dark ? 'bg-dark-surface/80 text-slate-600' : 'bg-white/80 text-slate-400',
+          )}>
+            Ctrl+Z undo · Ctrl+Y redo · Del remove · Esc deselect
           </div>
-
-          {/* Undo / Redo buttons */}
-          <div className="flex items-center gap-0.5 rounded-md overflow-hidden" style={{ border: `1px solid ${dark ? '#232b3e' : '#dde3f0'}` }}>
-            <button
-              onClick={() => undo(labId)}
-              disabled={!canUndo(labId)}
-              title="Undo (Ctrl+Z)"
-              className={cn(
-                'px-2 py-1 text-[9px] font-medium transition-all flex items-center gap-1',
-                canUndo(labId)
-                  ? (dark ? 'text-slate-300 hover:bg-dark-surface' : 'text-slate-600 hover:bg-slate-200')
-                  : (dark ? 'text-slate-700 cursor-not-allowed' : 'text-slate-300 cursor-not-allowed'),
-              )}
-              style={{ background: dark ? '#141824' : '#f8fafc' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
-              Undo
-            </button>
-            <button
-              onClick={() => redo(labId)}
-              disabled={!canRedo(labId)}
-              title="Redo (Ctrl+Shift+Z)"
-              className={cn(
-                'px-2 py-1 text-[9px] font-medium transition-all flex items-center gap-1',
-                canRedo(labId)
-                  ? (dark ? 'text-slate-300 hover:bg-dark-surface' : 'text-slate-600 hover:bg-slate-200')
-                  : (dark ? 'text-slate-700 cursor-not-allowed' : 'text-slate-300 cursor-not-allowed'),
-              )}
-              style={{ background: dark ? '#141824' : '#f8fafc' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" /></svg>
-              Redo
-            </button>
-          </div>
-
-          {/* Grid toggle */}
-          <div className="flex items-center rounded-md overflow-hidden" style={{ border: `1px solid ${dark ? '#232b3e' : '#dde3f0'}` }}>
-            {([
-              { mode: 'off'    as GridMode, label: 'No Grid' },
-              { mode: 'fine'   as GridMode, label: 'Fine' },
-              { mode: 'coarse' as GridMode, label: 'Coarse' },
-              { mode: 'pc'     as GridMode, label: 'PC Grid' },
-            ]).map(opt => (
-              <button
-                key={opt.mode}
-                onClick={() => setGridMode(opt.mode)}
-                className={cn(
-                  'px-2 py-0.5 text-[8px] font-medium transition-all',
-                  gridMode === opt.mode
-                    ? 'text-white'
-                    : (dark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'),
-                )}
-                style={{
-                  background: gridMode === opt.mode ? accent : (dark ? '#141824' : '#f8fafc'),
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        </>
       )}
 
       {/* ── Furniture items ───────────────────────────────────────────── */}
       {furniture.map(item => {
         const pos = getFurnPos(item.id)
         const isDragging = drag?.id === item.id
+        const isSelected = selectedFurnId === item.id
         return (
           <div
             key={item.id}
@@ -600,6 +467,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
               editMode && !isDragging && 'cursor-grab hover:shadow-md',
               isDragging && 'cursor-grabbing shadow-xl z-50',
               !editMode && 'pointer-events-none',
+              isSelected && 'ring-2 ring-offset-1',
             )}
             style={{
               left: pos.x, top: pos.y,
@@ -607,8 +475,10 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
               background: dark ? 'rgba(20,30,46,0.85)' : 'rgba(226,232,240,0.85)',
               transition: isDragging ? 'none' : 'box-shadow 150ms',
               transform: isDragging ? 'scale(1.05)' : undefined,
+              ...(isSelected ? { ringColor: accent, borderColor: accent } : {}),
             }}
-            onPointerDown={e => startDrag(e, item.id, 'furniture')}
+            onPointerDown={e => { if (editMode) { setSelectedFurnId(item.id); startDrag(e, item.id, 'furniture') } }}
+            onClick={() => { if (editMode) setSelectedFurnId(prev => prev === item.id ? null : item.id) }}
           >
             <FurnIcon type={item.type} color={dark ? '#64748b' : '#94a3b8'} />
             <span className="text-[8px] leading-tight text-center mt-0.5">{item.label}</span>
@@ -619,7 +489,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
                 className="absolute -top-2 -right-2 w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white shadow-sm hover:scale-110 transition-transform"
                 style={{ background: '#f43f5e' }}
                 onPointerDown={e => e.stopPropagation()}
-                onClick={() => removeFurniture(labId, item.id)}
+                onClick={(e) => { e.stopPropagation(); removeFurniture(labId, item.id); setSelectedFurnId(null) }}
               >
                 ✕
               </button>
@@ -662,26 +532,6 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         )
       })}
 
-      {/* ── Add-furniture toolbar (edit mode) ─────────────────────────── */}
-      {editMode && (
-        <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 right-2 sm:right-3 flex items-center gap-1 z-30 overflow-x-auto">
-          <span className={cn('text-[9px] mr-1 flex-shrink-0', dark ? 'text-slate-600' : 'text-slate-400')}>Add:</span>
-          {(['table', 'door', 'aircon', 'server', 'router', 'wifi', 'smarttv'] as const).map(type => (
-            <button
-              key={type}
-              onClick={() => addNewFurniture(type)}
-              className={cn(
-                'flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-medium transition-all hover:scale-105 flex-shrink-0',
-                dark ? 'bg-dark-surface border border-dark-border text-slate-400 hover:text-slate-300'
-                     : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-700',
-              )}
-            >
-              <FurnIcon type={type} color={dark ? '#94a3b8' : '#64748b'} />
-              {FURN_LABELS[type]}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
