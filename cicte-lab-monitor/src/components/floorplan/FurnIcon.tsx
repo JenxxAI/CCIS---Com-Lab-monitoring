@@ -1,6 +1,8 @@
 /* ─── Minimalist SVG icons ────────────────────────────────────────────────── */
 
-export function FurnIcon({ type, color }: { type: string; color: string }) {
+import { memo } from 'react'
+
+export const FurnIcon = memo(function FurnIcon({ type, color }: { type: string; color: string }) {
   const s = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   switch (type) {
     case 'table': return (
@@ -28,5 +30,5 @@ export function FurnIcon({ type, color }: { type: string; color: string }) {
       <svg {...s}><rect x="3" y="3" width="18" height="18" rx="3" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
     )
   }
-}
+})
 

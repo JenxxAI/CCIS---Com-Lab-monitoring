@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { PCTile } from './PCTile'
 import { useThemeStore, useLayoutStore } from '@/store'
+import { toast } from '@/store/toast'
 import { GENERIC_GRIDS } from '@/lib/data'
 import type { PC, PCStatus, Position, FurnitureItem } from '@/types'
 import { cn } from '@/lib/utils'
@@ -67,6 +68,11 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
   const [gridMode, setGridMode] = useState<GridMode>('pc')
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const dragRef  = useRef<DragState | null>(null)
+
+  // Marquee (rubber-band) selection
+  const [marquee, setMarquee] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null)
+  const marqueeRef = useRef(marquee)
+  marqueeRef.current = marquee
   const storeRef = useRef({ layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory })
 
   const accent     = dark ? '#5b7fff' : '#3a5cf5'
@@ -431,6 +437,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         if (furnIds.length > 0) {
           pushHistory(labId)
           furnIds.forEach(id => removeFurniture(labId, id))
+          toast.info(`Removed ${furnIds.length} item${furnIds.length > 1 ? 's' : ''}`)
         }
         setSelection(new Set())
       }
@@ -472,6 +479,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     } else {
       addFurniture(labId, item)
     }
+    toast.success(`Added ${labels[type] ?? type}`)
   }
 
   /** Toggle an item in/out of the selection. Shift/Ctrl = additive, plain = exclusive */
@@ -488,6 +496,67 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     })
   }
 
+  /* ── Marquee (rubber-band) selection ───────────────────────────────── */
+
+  const startMarquee = (e: React.PointerEvent) => {
+    if (!editMode || drag) return
+    // Only start marquee on direct canvas clicks (background)
+    if (e.target !== canvasRef.current) return
+    const rect = canvasRef.current!.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    setMarquee({ startX: x, startY: y, curX: x, curY: y })
+    marqueeRef.current = { startX: x, startY: y, curX: x, curY: y }
+  }
+
+  useEffect(() => {
+    if (!marquee) return
+
+    const onMove = (e: PointerEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const curX = Math.max(0, Math.min(CANVAS_W, e.clientX - rect.left))
+      const curY = Math.max(0, Math.min(CANVAS_H, e.clientY - rect.top))
+      setMarquee(m => m ? { ...m, curX, curY } : null)
+      marqueeRef.current = marqueeRef.current ? { ...marqueeRef.current, curX, curY } : null
+    }
+
+    const onUp = () => {
+      const m = marqueeRef.current
+      if (m) {
+        const left   = Math.min(m.startX, m.curX)
+        const right  = Math.max(m.startX, m.curX)
+        const top    = Math.min(m.startY, m.curY)
+        const bottom = Math.max(m.startY, m.curY)
+
+        // Only select if the marquee is big enough (avoid accidental)
+        if (right - left > 5 && bottom - top > 5) {
+          const ids = new Set<string>()
+          pcs.forEach(pc => {
+            const pos = pcPositions[pc.id] ?? { x: 0, y: 0 }
+            const cx = pos.x + 22, cy = pos.y + 19 // tile center
+            if (cx >= left && cx <= right && cy >= top && cy <= bottom) ids.add(pc.id)
+          })
+          furniture.forEach(f => {
+            const cx = f.x + f.width / 2, cy = f.y + f.height / 2
+            if (cx >= left && cx <= right && cy >= top && cy <= bottom) ids.add(f.id)
+          })
+          setSelection(ids)
+        }
+      }
+      setMarquee(null)
+      marqueeRef.current = null
+    }
+
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+    return () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!marquee, pcs, pcPositions, furniture])
+
   /* ═══ Render ═══════════════════════════════════════════════════════════ */
 
   const gridSize = gridMode === 'fine' ? GRID_FINE : gridMode === 'coarse' ? GRID_COARSE : gridMode === 'pc' ? PC_GRID_W : 0
@@ -500,7 +569,8 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         'relative rounded-2xl border select-none',
         dark ? 'bg-dark-mapBg border-dark-border' : 'bg-slate-100 border-slate-200',
       )}
-      onClick={() => { if (editMode) setSelection(new Set()) }}
+      onClick={() => { if (editMode && !marquee) setSelection(new Set()) }}
+      onPointerDown={startMarquee}
       style={{
         width: CANVAS_W,
         height: CANVAS_H,
@@ -651,6 +721,35 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
           </div>
         )
       })}
+
+      {/* ── Marquee selection rectangle ──────────────────────────────── */}
+      {marquee && (() => {
+        const left   = Math.min(marquee.startX, marquee.curX)
+        const top    = Math.min(marquee.startY, marquee.curY)
+        const width  = Math.abs(marquee.curX - marquee.startX)
+        const height = Math.abs(marquee.curY - marquee.startY)
+        return (
+          <div
+            className="absolute pointer-events-none z-[200]"
+            style={{
+              left, top, width, height,
+              border: `1.5px dashed ${accent}`,
+              background: `${accent}15`,
+              borderRadius: 4,
+            }}
+          />
+        )
+      })()}
+
+      {/* ── Selection count indicator ───────────────────────────────── */}
+      {editMode && selection.size > 1 && !drag && (
+        <div
+          className="absolute top-3 right-3 z-30 px-2 py-1 rounded-full text-[10px] font-semibold text-white"
+          style={{ background: accent }}
+        >
+          {selection.size} selected
+        </div>
+      )}
 
     </div>
   )
