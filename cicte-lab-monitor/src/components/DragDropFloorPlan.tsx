@@ -8,7 +8,7 @@ import {
   GRID_FINE, GRID_COARSE, PC_GRID_W, PC_GRID_H,
   TILE_W, TILE_H, CANVAS_W, CANVAS_H, PAD,
   ALIGN_THRESHOLD, snapTo, clamp,
-  type GridMode, type AlignGuide, type DistLabel, type DragState,
+  type GridMode, type AlignGuide, type DistLabel, type DragState, type GroupMember,
 } from './floorplan/constants'
 import { FurnIcon } from './floorplan/FurnIcon'
 import { AlignmentOverlay } from './floorplan/AlignmentOverlay'
@@ -65,7 +65,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
   const canvasRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [gridMode, setGridMode] = useState<GridMode>('pc')
-  const [selectedFurnId, setSelectedFurnId] = useState<string | null>(null)
+  const [selection, setSelection] = useState<Set<string>>(new Set())
   const dragRef  = useRef<DragState | null>(null)
   const storeRef = useRef({ layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory })
 
@@ -94,13 +94,38 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
 
   /* ── Position getters (use drag pos for active item) ────────────────── */
 
+  /** Compute group-member delta from the primary item's movement */
+  const groupDelta = drag ? { x: drag.pos.x - drag.startPos.x, y: drag.pos.y - drag.startPos.y } : { x: 0, y: 0 }
+
   const getPCPos = (pcId: string): Position => {
+    // Primary drag item
     if (drag?.id === pcId && drag.kind === 'pc') return drag.pos
+    // Group member — apply the same delta
+    if (drag && drag.group.length > 0) {
+      const member = drag.group.find(m => m.id === pcId && m.kind === 'pc')
+      if (member) {
+        return {
+          x: clamp(member.startPos.x + groupDelta.x, 0, CANVAS_W - 44),
+          y: clamp(member.startPos.y + groupDelta.y, 0, CANVAS_H - 38),
+        }
+      }
+    }
     return pcPositions[pcId] ?? { x: 0, y: 0 }
   }
 
   const getFurnPos = (fId: string): Position => {
     if (drag?.id === fId && drag.kind === 'furniture') return drag.pos
+    // Group member
+    if (drag && drag.group.length > 0) {
+      const member = drag.group.find(m => m.id === fId && m.kind === 'furniture')
+      if (member) {
+        const item = furniture.find(f => f.id === fId)
+        return {
+          x: clamp(member.startPos.x + groupDelta.x, 0, CANVAS_W - (item?.width ?? 44)),
+          y: clamp(member.startPos.y + groupDelta.y, 0, CANVAS_H - (item?.height ?? 38)),
+        }
+      }
+    }
     const item = furniture.find(f => f.id === fId)
     return item ? { x: item.x, y: item.y } : { x: 0, y: 0 }
   }
@@ -249,13 +274,33 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
       itemX = f?.x ?? 0; itemY = f?.y ?? 0
     }
 
+    // Build group: if the dragged item is in the selection and there are
+    // multiple items selected, all OTHER selected items become group members.
+    let group: GroupMember[] = []
+    if (selection.has(id) && selection.size > 1) {
+      group = [...selection]
+        .filter(sid => sid !== id)
+        .map(sid => {
+          const isPC = pcs.some(pc => pc.id === sid)
+          if (isPC) {
+            const pos = pcPositions[sid] ?? { x: 0, y: 0 }
+            return { id: sid, kind: 'pc' as const, startPos: pos }
+          } else {
+            const fi = furniture.find(f => f.id === sid)
+            return { id: sid, kind: 'furniture' as const, startPos: { x: fi?.x ?? 0, y: fi?.y ?? 0 } }
+          }
+        })
+    }
+
     const newDrag: DragState = {
       id, kind,
       offsetX: e.clientX - rect.left - itemX,
       offsetY: e.clientY - rect.top  - itemY,
       pos: { x: itemX, y: itemY },
+      startPos: { x: itemX, y: itemY },
       guides: [],
       dists: [],
+      group,
     }
     dragRef.current = newDrag
     setDrag(newDrag)
@@ -285,19 +330,57 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
       const d = dragRef.current
       const s = storeRef.current
       if (d) {
-        // Save current state before committing new position
+        // Save current state before committing new positions
         s.pushHistory(s.labId)
+
+        const delta = { x: d.pos.x - d.startPos.x, y: d.pos.y - d.startPos.y }
+
         if (!s.layouts[s.labId]) {
+          // First layout edit — initialise with defaults then apply drag
           const allPc = { ...getDefaultPositions(s.pcs, s.labId) }
+          const allFurn = [...getDefaultFurniture(s.labId)]
+
+          // Apply primary item
           if (d.kind === 'pc') allPc[d.id] = d.pos
-          const allFurn = getDefaultFurniture(s.labId).map(f =>
-            f.id === d.id ? { ...f, x: d.pos.x, y: d.pos.y } : f
-          )
+          else {
+            const idx = allFurn.findIndex(f => f.id === d.id)
+            if (idx >= 0) allFurn[idx] = { ...allFurn[idx], x: d.pos.x, y: d.pos.y }
+          }
+
+          // Apply group members
+          for (const m of d.group) {
+            const newX = m.startPos.x + delta.x
+            const newY = m.startPos.y + delta.y
+            if (m.kind === 'pc') {
+              allPc[m.id] = { x: clamp(newX, 0, CANVAS_W - 44), y: clamp(newY, 0, CANVAS_H - 38) }
+            } else {
+              const idx = allFurn.findIndex(f => f.id === m.id)
+              if (idx >= 0) {
+                allFurn[idx] = { ...allFurn[idx], x: clamp(newX, 0, CANVAS_W - allFurn[idx].width), y: clamp(newY, 0, CANVAS_H - allFurn[idx].height) }
+              }
+            }
+          }
+
           s.initLayout(s.labId, allPc, allFurn)
-        } else if (d.kind === 'pc') {
-          s.updatePCPosition(s.labId, d.id, d.pos)
         } else {
-          s.updateFurniturePosition(s.labId, d.id, d.pos)
+          // Commit primary
+          if (d.kind === 'pc') s.updatePCPosition(s.labId, d.id, d.pos)
+          else s.updateFurniturePosition(s.labId, d.id, d.pos)
+
+          // Commit group members
+          for (const m of d.group) {
+            const newX = m.startPos.x + delta.x
+            const newY = m.startPos.y + delta.y
+            if (m.kind === 'pc') {
+              s.updatePCPosition(s.labId, m.id, { x: clamp(newX, 0, CANVAS_W - 44), y: clamp(newY, 0, CANVAS_H - 38) })
+            } else {
+              const fi = furniture.find(f => f.id === m.id)
+              s.updateFurniturePosition(s.labId, m.id, {
+                x: clamp(newX, 0, CANVAS_W - (fi?.width ?? 44)),
+                y: clamp(newY, 0, CANVAS_H - (fi?.height ?? 38)),
+              })
+            }
+          }
         }
       }
       dragRef.current = null
@@ -315,8 +398,8 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
 
   /* ── Keyboard shortcuts ─────────────────────────────────────────── */
   //  Ctrl+Z undo · Ctrl+Shift+Z / Ctrl+Y redo
-  //  Delete/Backspace  remove selected furniture
-  //  Escape            deselect furniture / deselect PC / exit edit mode
+  //  Ctrl+A select all · Delete/Backspace remove selected furniture
+  //  Escape  clear selection / deselect PC / exit edit mode
 
   useEffect(() => {
     if (!editMode) return
@@ -334,18 +417,28 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         e.preventDefault()
         redo(labId)
       }
-      // Delete selected furniture
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFurnId) {
+      // Select all
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault()
-        pushHistory(labId)
-        removeFurniture(labId, selectedFurnId)
-        setSelectedFurnId(null)
+        const allIds = new Set([...pcs.map(p => p.id), ...furniture.map(f => f.id)])
+        setSelection(allIds)
       }
-      // Escape: deselect furniture → deselect PC → exit edit
+      // Delete selected furniture items
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selection.size > 0) {
+        e.preventDefault()
+        // Only delete furniture, not PCs
+        const furnIds = [...selection].filter(id => furniture.some(f => f.id === id))
+        if (furnIds.length > 0) {
+          pushHistory(labId)
+          furnIds.forEach(id => removeFurniture(labId, id))
+        }
+        setSelection(new Set())
+      }
+      // Escape: clear selection → deselect PC → exit edit
       else if (e.key === 'Escape') {
         e.preventDefault()
-        if (selectedFurnId) {
-          setSelectedFurnId(null)
+        if (selection.size > 0) {
+          setSelection(new Set())
         } else if (selectedPC) {
           onSelect(selectedPC) // toggle off
         } else {
@@ -355,7 +448,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [editMode, labId, undo, redo, pushHistory, removeFurniture, selectedFurnId, selectedPC, onSelect])
+  }, [editMode, labId, undo, redo, pushHistory, removeFurniture, selection, selectedPC, onSelect, pcs, furniture])
 
   /* ── Add furniture helper ──────────────────────────────────────────── */
 
@@ -381,6 +474,20 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     }
   }
 
+  /** Toggle an item in/out of the selection. Shift/Ctrl = additive, plain = exclusive */
+  const toggleSelect = (id: string, additive: boolean) => {
+    setSelection(prev => {
+      if (additive) {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id); else next.add(id)
+        return next
+      }
+      // Plain click — exclusive select (or deselect if already the only one)
+      if (prev.has(id) && prev.size === 1) return new Set<string>()
+      return new Set([id])
+    })
+  }
+
   /* ═══ Render ═══════════════════════════════════════════════════════════ */
 
   const gridSize = gridMode === 'fine' ? GRID_FINE : gridMode === 'coarse' ? GRID_COARSE : gridMode === 'pc' ? PC_GRID_W : 0
@@ -393,7 +500,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
         'relative rounded-2xl border select-none',
         dark ? 'bg-dark-mapBg border-dark-border' : 'bg-slate-100 border-slate-200',
       )}
-      onClick={() => { if (editMode) setSelectedFurnId(null) }}
+      onClick={() => { if (editMode) setSelection(new Set()) }}
       style={{
         width: CANVAS_W,
         height: CANVAS_H,
@@ -447,7 +554,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
             'absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] px-3 py-1 rounded-full pointer-events-none z-20',
             dark ? 'bg-dark-surface/80 text-slate-600' : 'bg-white/80 text-slate-400',
           )}>
-            Ctrl+Z undo · Ctrl+Y redo · Del remove · Esc deselect
+            Ctrl+Z undo · Ctrl+Y redo · Del remove · Esc deselect · Shift+Click multi-select · Ctrl+A select all
           </div>
         </>
       )}
@@ -455,8 +562,8 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
       {/* ── Furniture items ───────────────────────────────────────────── */}
       {furniture.map(item => {
         const pos = getFurnPos(item.id)
-        const isDragging = drag?.id === item.id
-        const isSelected = selectedFurnId === item.id
+        const isDragging = drag?.id === item.id || (drag?.group.some(m => m.id === item.id) ?? false)
+        const isSelected = selection.has(item.id)
         return (
           <div
             key={item.id}
@@ -475,10 +582,15 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
               background: dark ? 'rgba(20,30,46,0.85)' : 'rgba(226,232,240,0.85)',
               transition: isDragging ? 'none' : 'box-shadow 150ms',
               transform: isDragging ? 'scale(1.05)' : undefined,
-              ...(isSelected ? { ringColor: accent, borderColor: accent } : {}),
+              ...(isSelected ? { borderColor: accent } : {}),
             }}
-            onPointerDown={e => { if (editMode) { setSelectedFurnId(item.id); startDrag(e, item.id, 'furniture') } }}
-            onClick={() => { if (editMode) setSelectedFurnId(prev => prev === item.id ? null : item.id) }}
+            onPointerDown={e => {
+              if (!editMode) return
+              // If not in current selection, select it first (unless shift held)
+              if (!selection.has(item.id)) toggleSelect(item.id, e.shiftKey || e.ctrlKey || e.metaKey)
+              startDrag(e, item.id, 'furniture')
+            }}
+            onClick={(e) => { if (editMode) { e.stopPropagation(); toggleSelect(item.id, e.shiftKey || e.ctrlKey || e.metaKey) } }}
           >
             <FurnIcon type={item.type} color={dark ? '#64748b' : '#94a3b8'} />
             <span className="text-[8px] leading-tight text-center mt-0.5">{item.label}</span>
@@ -489,7 +601,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
                 className="absolute -top-2 -right-2 w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white shadow-sm hover:scale-110 transition-transform"
                 style={{ background: '#f43f5e' }}
                 onPointerDown={e => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); removeFurniture(labId, item.id); setSelectedFurnId(null) }}
+                onClick={(e) => { e.stopPropagation(); removeFurniture(labId, item.id); setSelection(prev => { const n = new Set(prev); n.delete(item.id); return n }) }}
               >
                 ✕
               </button>
@@ -501,9 +613,10 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
       {/* ── PC tiles ──────────────────────────────────────────────────── */}
       {pcs.map(pc => {
         const pos        = getPCPos(pc.id)
-        const isDragging = drag?.id === pc.id
+        const isDragging = drag?.id === pc.id || (drag?.group.some(m => m.id === pc.id) ?? false)
         const isDimmed   = dim(pc)
         const isSelected = selectedPC?.id === pc.id
+        const isInSelection = selection.has(pc.id)
 
         return (
           <div
@@ -512,14 +625,21 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
               'absolute',
               editMode && !isDragging && 'cursor-grab',
               isDragging && 'cursor-grabbing',
+              editMode && isInSelection && 'ring-2 ring-offset-1 rounded-lg',
             )}
             style={{
               left: pos.x, top: pos.y,
               transition: isDragging ? 'none' : 'left 80ms, top 80ms',
               zIndex: isDragging ? 100 : isSelected ? 10 : 1,
               transform: isDragging ? 'scale(1.12)' : undefined,
+              ...(editMode && isInSelection ? { ['--tw-ring-color' as string]: accent } : {}),
             }}
-            onPointerDown={e => { if (editMode) startDrag(e, pc.id, 'pc') }}
+            onPointerDown={e => {
+              if (!editMode) return
+              if (!selection.has(pc.id)) toggleSelect(pc.id, e.shiftKey || e.ctrlKey || e.metaKey)
+              startDrag(e, pc.id, 'pc')
+            }}
+            onClick={e => { if (editMode) { e.stopPropagation(); toggleSelect(pc.id, e.shiftKey || e.ctrlKey || e.metaKey) } }}
           >
             <PCTile
               pc={pc}
