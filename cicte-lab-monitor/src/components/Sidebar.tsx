@@ -1,10 +1,59 @@
-import { useLabStore, useThemeStore } from '@/store'
+import { useState, useRef, useEffect } from 'react'
+import { useLabStore, useThemeStore, useLayoutStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 
 export function Sidebar() {
   const { activeLab, setActiveLab, labData } = useLabStore()
   const { dark } = useThemeStore()
+  const { editMode, setEditMode } = useLayoutStore()
+
+  // Unsaved-edit guard state
+  const [pendingLab, setPendingLab] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Close dialog on outside click
+  useEffect(() => {
+    if (!pendingLab) return
+    const handler = (e: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+        setPendingLab(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [pendingLab])
+
+  // Close dialog on Escape
+  useEffect(() => {
+    if (!pendingLab) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPendingLab(null)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [pendingLab])
+
+  const handleLabClick = (labId: string) => {
+    if (labId === activeLab) return
+    if (editMode) {
+      setPendingLab(labId)
+      return
+    }
+    setActiveLab(labId)
+  }
+
+  const handleDiscard = () => {
+    if (!pendingLab) return
+    setEditMode(false)
+    setActiveLab(pendingLab)
+    setPendingLab(null)
+  }
+
+  const handleKeepEditing = () => {
+    setPendingLab(null)
+  }
 
   const labStats = (id: string) => {
     const ps = labData[id] ?? []
@@ -44,7 +93,7 @@ export function Sidebar() {
           return (
             <button
               key={lab.id}
-              onClick={() => setActiveLab(lab.id)}
+              onClick={() => handleLabClick(lab.id)}
               className={cn(
                 'w-full text-left px-2.5 py-2 rounded-xl mb-0.5',
                 'transition-all duration-150',
@@ -147,6 +196,62 @@ export function Sidebar() {
           ))}
         </div>
       </div>
+
+      {/* ── Unsaved-edit confirmation dialog ──────────────────────────── */}
+      {pendingLab && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            ref={dialogRef}
+            className={cn(
+              'w-80 rounded-xl p-5 shadow-2xl border',
+              dark
+                ? 'bg-dark-surface border-dark-border'
+                : 'bg-white border-slate-200'
+            )}
+          >
+            {/* Icon + title */}
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-amber-500/15">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className={cn('text-sm font-semibold', dark ? 'text-white' : 'text-slate-800')}>
+                  Unsaved Layout Changes
+                </h3>
+                <p className={cn('text-[11px] mt-0.5', dark ? 'text-slate-400' : 'text-slate-500')}>
+                  You're editing the floor plan layout.
+                </p>
+              </div>
+            </div>
+
+            {/* Message */}
+            <p className={cn('text-xs leading-relaxed mb-4', dark ? 'text-slate-400' : 'text-slate-600')}>
+              Switching labs will discard any unsaved changes. Finish editing first, or discard to continue.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleKeepEditing}
+                className={cn(
+                  'flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors',
+                  dark
+                    ? 'bg-dark-surfaceAlt hover:bg-dark-border text-slate-300'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                )}
+              >
+                Keep Editing
+              </button>
+              <button
+                onClick={handleDiscard}
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+              >
+                Discard & Switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
