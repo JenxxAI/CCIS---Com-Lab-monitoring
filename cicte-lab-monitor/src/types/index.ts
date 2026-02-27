@@ -116,3 +116,102 @@ export interface FurnitureItem {
   width:  number
   height: number
 }
+
+// ─── Repair Ticket System ────────────────────────────────────────────────────
+
+export type TicketPriority = 'low' | 'medium' | 'high' | 'critical'
+export type TicketStatus   = 'open' | 'in-progress' | 'resolved' | 'closed'
+
+export interface RepairTicket {
+  id:              string
+  pcId:            string
+  labId:           string
+  title:           string
+  description:     string
+  priority:        TicketPriority
+  status:          TicketStatus
+  assignedTo:      string
+  createdBy:       string
+  createdAt:       string     // ISO timestamp
+  updatedAt:       string     // ISO timestamp
+  estimatedMinutes: number
+  resolvedAt?:     string     // ISO timestamp
+  resolution?:     string
+  partsUsed:       string[]   // SparePart ids
+}
+
+// ─── Maintenance Scheduling ──────────────────────────────────────────────────
+
+export type MaintenanceType   = 'preventive' | 'cleanup' | 'os-update' | 'hardware-check' | 'network'
+export type MaintenanceStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+
+export interface MaintenanceEvent {
+  id:             string
+  labId:          string
+  title:          string
+  description:    string
+  scheduledDate:  string      // YYYY-MM-DD
+  scheduledTime?: string      // HH:mm
+  durationMinutes: number
+  type:           MaintenanceType
+  status:         MaintenanceStatus
+  assignedTo:     string
+  createdBy:      string
+  createdAt:      string      // ISO timestamp
+  notes:          string
+  pcIds:          string[]    // optional: specific PCs targeted
+}
+
+// ─── Spare Parts Inventory ───────────────────────────────────────────────────
+
+export type PartCategory = 'RAM' | 'Storage' | 'Cable' | 'Peripheral' | 'Display' | 'Network' | 'Power' | 'Other'
+
+export interface PartUsageLog {
+  id:        string
+  partId:    string
+  pcId:      string
+  labId:     string
+  quantity:  number
+  date:      string
+  usedBy:    string
+  ticketId?: string
+}
+
+export interface SparePart {
+  id:            string
+  name:          string
+  category:      PartCategory
+  quantity:       number
+  location:      string
+  minStock:      number
+  unitCost?:     number
+  lastRestocked?: string
+  usageLog:      PartUsageLog[]
+}
+
+// ─── Activity Timeline ───────────────────────────────────────────────────────
+
+export type ActivityType =
+  | 'status-change'
+  | 'condition-change'
+  | 'repair-logged'
+  | 'password-change'
+  | 'ticket-created'
+  | 'ticket-resolved'
+  | 'maintenance-scheduled'
+  | 'maintenance-completed'
+  | 'part-used'
+  | 'app-installed'
+  | 'app-removed'
+
+export interface ActivityEvent {
+  id:          string
+  pcId?:       string
+  labId:       string
+  type:        ActivityType
+  title:       string
+  description: string
+  timestamp:   string   // ISO timestamp
+  performedBy: string
+  metadata?:   Record<string, string>
+}
