@@ -38,14 +38,24 @@ export interface DistLabel {
 
 /* ─── Drag state ─────────────────────────────────────────────────────────── */
 
+/** A member of a group-drag operation */
+export interface GroupMember {
+  id:       string
+  kind:     'pc' | 'furniture'
+  startPos: Position          // position when drag began
+}
+
 export interface DragState {
   id:      string
   kind:    'pc' | 'furniture'
   offsetX: number
   offsetY: number
-  pos:     Position
+  pos:     Position           // current position of the PRIMARY dragged item
+  startPos: Position          // position of primary item when drag began
   guides:  AlignGuide[]
   dists:   DistLabel[]
+  /** When dragging a group, holds all OTHER selected items + their start pos */
+  group:   GroupMember[]
 }
 
 export const FURN_LABELS: Record<FurnitureType, string> = {
