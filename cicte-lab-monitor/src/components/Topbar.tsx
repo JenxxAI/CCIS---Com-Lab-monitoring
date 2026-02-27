@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Menu, Sun, Moon, Bell, LogOut, Check, Trash2 } from 'lucide-react'
-import { useThemeStore, useLabStore, useNotifStore, useAuthStore } from '@/store'
+import { useThemeStore, useLabStore, useNotifStore, useAuthStore, useLayoutStore } from '@/store'
 import { cn } from '@/lib/utils'
+import { EditGuardDialog } from './EditGuardDialog'
 
 function formatTimeAgo(date: Date): string {
   const diff = Date.now() - date.getTime()
@@ -19,7 +20,9 @@ export function Topbar() {
   const { labData } = useLabStore()
   const { notifications, markAllRead, clearAll } = useNotifStore()
   const { user, logout } = useAuthStore()
+  const { editMode, setEditMode } = useLayoutStore()
   const [notifOpen, setNotifOpen] = useState(false)
+  const [showLogoutGuard, setShowLogoutGuard] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
 
   const allPCs     = Object.values(labData).flat()
@@ -263,7 +266,10 @@ export function Topbar() {
             </span>
           </div>
           <button
-            onClick={logout}
+            onClick={() => {
+              if (editMode) { setShowLogoutGuard(true); return }
+              logout()
+            }}
             title="Sign out"
             className={cn(
               'w-8 h-8 rounded-lg flex items-center justify-center transition-colors border',
@@ -276,6 +282,18 @@ export function Topbar() {
           </button>
         </div>
       )}
+
+      <EditGuardDialog
+        open={showLogoutGuard}
+        message="Logging out will discard any unsaved layout changes. Finish editing first, or discard to sign out."
+        confirmLabel="Discard & Sign Out"
+        onCancel={() => setShowLogoutGuard(false)}
+        onConfirm={() => {
+          setEditMode(false)
+          setShowLogoutGuard(false)
+          logout()
+        }}
+      />
     </header>
   )
 }
