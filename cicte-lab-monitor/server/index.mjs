@@ -123,6 +123,7 @@ function matchOrCreatePC(db, hb) {
         pcType: 'Desktop',
       },
       repairs: [],
+      installedApps: [],
     }
     db.pcs.push(pc)
     writeDB(db)

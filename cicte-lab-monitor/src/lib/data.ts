@@ -64,6 +64,11 @@ const SOFTWARE_POOL = [
   'MATLAB R2024a','Turbo C++','MinGW GCC','Arduino IDE 2.3',
 ]
 
+const APP_IDS = [
+  'xampp','vscode','vscode-purple','ms-office','typing-master',
+  'brackets','postman','chrome','firefox','browsers','notepad-pp','adobe-apps',
+]
+
 const rand   = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 const rInt   = (a: number, b: number) => Math.floor(Math.random() * (b - a + 1)) + a
 const pad2   = (n: number) => String(n).padStart(2, '0')
@@ -129,6 +134,7 @@ export function makePC(labId: string, num: number): PC {
       pcType:      rand(PC_TYPE_OPTS),
     },
     repairs: makeRepairs(),
+    installedApps: [...APP_IDS].sort(() => Math.random() - 0.5).slice(0, rInt(4, 10)),
   }
 }
 

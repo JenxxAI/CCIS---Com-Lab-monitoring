@@ -41,6 +41,7 @@ export interface PC {
   routerPassword:        string
   specs:                 PCSpecs
   repairs:               RepairLog[]
+  installedApps:         string[]    // ids from APP_CATALOG
 }
 
 export interface Lab {
