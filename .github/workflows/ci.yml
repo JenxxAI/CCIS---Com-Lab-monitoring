@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cicte-lab-monitor
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cicte-lab-monitor/package-lock.json
+
+      - run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        run: npx eslint src/
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx vitest run
+
+      - name: Build
+        run: npx vite build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: cicte-lab-monitor/dist

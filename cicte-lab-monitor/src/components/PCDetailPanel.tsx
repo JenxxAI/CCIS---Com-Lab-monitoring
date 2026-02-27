@@ -1,11 +1,14 @@
-import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package } from 'lucide-react'
+import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 import { Badge } from './Badge'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
 import { STATUS_META, COND_META } from '@/lib/utils'
-import { useLabStore } from '@/store'
+import { useLabStore, useAuthStore } from '@/store'
 import { useThemeStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { toast } from '@/store/toast'
+import type { PCStatus, PCCondition } from '@/types'
 
 function KV({ label, value, mono = false }: {
   label: string; value: string; mono?: boolean
@@ -44,15 +47,30 @@ function SectionHead({ title, icon }: { title: string; icon?: React.ReactNode })
 }
 
 export function PCDetailPanel() {
-  const { selectedPC, setSelectedPC, activeLab } = useLabStore()
+  const { selectedPC, setSelectedPC, activeLab, updatePC } = useLabStore()
   const { dark } = useThemeStore()
+  const isAdmin = useAuthStore(s => s.isAdmin)
   const lab = LABS.find(l => l.id === activeLab)
+  const [showStatusPicker, setShowStatusPicker] = useState(false)
+  const [showCondPicker, setShowCondPicker] = useState(false)
 
   if (!selectedPC) return null
 
   const sc = STATUS_META[selectedPC.status]
   const cc = COND_META[selectedPC.condition]
   const accent = dark ? '#5b7fff' : '#3a5cf5'
+
+  const changeStatus = (status: PCStatus) => {
+    updatePC({ ...selectedPC, status })
+    setShowStatusPicker(false)
+    toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} → ${STATUS_META[status].label}`)
+  }
+
+  const changeCondition = (condition: PCCondition) => {
+    updatePC({ ...selectedPC, condition })
+    setShowCondPicker(false)
+    toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} → ${COND_META[condition].label}`)
+  }
 
   return (
     <aside
@@ -90,14 +108,77 @@ export function PCDetailPanel() {
           </button>
         </div>
 
-        {/* Status + Condition badges */}
+        {/* Status + Condition badges — click to edit (admin only) */}
         <div className="flex gap-2 flex-wrap mb-1">
-          <Badge color={STATUS_HEX[selectedPC.status]} bg={STATUS_BG_HEX[selectedPC.status]}>
-            {sc.label}
-          </Badge>
-          <Badge color={COND_HEX[selectedPC.condition]} bg={COND_HEX[selectedPC.condition] + '18'}>
-            {cc.label}
-          </Badge>
+          {/* Status badge */}
+          <div className="relative">
+            <button
+              onClick={() => isAdmin && setShowStatusPicker(p => !p)}
+              className={cn('inline-flex items-center gap-1', isAdmin && 'cursor-pointer')}
+              title={isAdmin ? 'Click to change status' : undefined}
+            >
+              <Badge color={STATUS_HEX[selectedPC.status]} bg={STATUS_BG_HEX[selectedPC.status]}>
+                {sc.label}
+              </Badge>
+              {isAdmin && <ChevronDown size={10} className={dark ? 'text-slate-600' : 'text-slate-400'} />}
+            </button>
+            {showStatusPicker && (
+              <div className={cn(
+                'absolute top-7 left-0 z-50 py-1 rounded-lg border shadow-lg min-w-[120px] animate-fade-in',
+                dark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200',
+              )}>
+                {(['available', 'occupied', 'maintenance'] as PCStatus[]).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => changeStatus(s)}
+                    className={cn(
+                      'w-full px-3 py-1.5 text-left text-[11px] transition-colors flex items-center gap-2',
+                      dark ? 'hover:bg-dark-surfaceAlt' : 'hover:bg-slate-50',
+                      selectedPC.status === s && 'font-semibold',
+                    )}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ background: STATUS_HEX[s] }} />
+                    <span className={dark ? 'text-slate-300' : 'text-slate-700'}>{STATUS_META[s].label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Condition badge */}
+          <div className="relative">
+            <button
+              onClick={() => isAdmin && setShowCondPicker(p => !p)}
+              className={cn('inline-flex items-center gap-1', isAdmin && 'cursor-pointer')}
+              title={isAdmin ? 'Click to change condition' : undefined}
+            >
+              <Badge color={COND_HEX[selectedPC.condition]} bg={COND_HEX[selectedPC.condition] + '18'}>
+                {cc.label}
+              </Badge>
+              {isAdmin && <ChevronDown size={10} className={dark ? 'text-slate-600' : 'text-slate-400'} />}
+            </button>
+            {showCondPicker && (
+              <div className={cn(
+                'absolute top-7 left-0 z-50 py-1 rounded-lg border shadow-lg min-w-[130px] animate-fade-in',
+                dark ? 'bg-dark-surface border-dark-border' : 'bg-white border-slate-200',
+              )}>
+                {(['good', 'lagging', 'needs_repair', 'damaged'] as PCCondition[]).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => changeCondition(c)}
+                    className={cn(
+                      'w-full px-3 py-1.5 text-left text-[11px] transition-colors flex items-center gap-2',
+                      dark ? 'hover:bg-dark-surfaceAlt' : 'hover:bg-slate-50',
+                      selectedPC.condition === c && 'font-semibold',
+                    )}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ background: COND_HEX[c] }} />
+                    <span className={dark ? 'text-slate-300' : 'text-slate-700'}>{COND_META[c].label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={cn('h-px my-4', dark ? 'bg-dark-border' : 'bg-slate-100')} />

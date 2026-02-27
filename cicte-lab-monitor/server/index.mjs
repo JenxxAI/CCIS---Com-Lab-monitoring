@@ -9,15 +9,18 @@
 //   POST   /api/pcs/:id/repairs     → add repair log
 //   POST   /api/auth/login          → authenticate user
 //   GET    /api/auth/me             → current user (from token)
+//   POST   /api/agent/heartbeat     → PC agent heartbeat
+//   GET    /api/agent/status        → all agent statuses
 
 import http from 'node:http'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname, join, extname } from 'node:path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname  = dirname(__filename)
 const DB_PATH    = join(__dirname, 'db.json')
+const DIST_DIR   = join(__dirname, '..', 'dist')  // Vite build output
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +73,141 @@ function verifyToken(authHeader) {
     return null
   }
 }
+
+// ─── Agent tracking (in-memory, keyed by labId-pcNum) ────────────────────────
+
+const AGENT_KEY      = process.env.AGENT_KEY || 'cicte-agent-2026'
+const OFFLINE_TIMEOUT = 90_000  // 90 seconds without heartbeat → offline
+
+/**
+ * agentMap: Map<string, {
+ *   labId, pcNum, hostname, ipAddress, macAddress,
+ *   os, osBuild, cpu, ram, storage, loggedInUser,
+ *   lastSeen: Date, online: boolean, agentVersion, pcId
+ * }>
+ */
+const agentMap = new Map()
+
+/** Find or create a PC in db.json matching this agent heartbeat */
+function matchOrCreatePC(db, hb) {
+  // Try to find existing PC by labId + num
+  let pc = db.pcs.find(p => p.labId === hb.labId && p.num === hb.pcNum)
+
+  if (!pc) {
+    // Auto-create a new PC entry
+    pc = {
+      id:  `${hb.labId}-${hb.pcNum}`,
+      num: hb.pcNum,
+      labId: hb.labId,
+      status: 'available',
+      condition: 'good',
+      password: `Lab@${1000 + Math.floor(Math.random() * 9000)}`,
+      lastPasswordChange: new Date().toISOString().slice(0, 10),
+      lastPasswordChangedBy: 'System',
+      lastStudent: hb.loggedInUser || 'Unknown',
+      lastUsed: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      routerSSID: `CICTE-${hb.labId.toUpperCase()}`,
+      routerPassword: `Net@${10000 + Math.floor(Math.random() * 90000)}`,
+      specs: {
+        ram: hb.ram || 'Unknown',
+        storage: hb.storage || 'Unknown',
+        os: hb.os || 'Unknown',
+        osBuild: hb.osBuild || '',
+        cpu: hb.cpu || 'Unknown',
+        gpu: 'Unknown',
+        motherboard: '',
+        monitor: '',
+        ipAddress: hb.ipAddress || '',
+        macAddress: hb.macAddress || '',
+        software: [],
+        pcType: 'Desktop',
+      },
+      repairs: [],
+    }
+    db.pcs.push(pc)
+    writeDB(db)
+    console.log(`[Agent] Auto-registered new PC: ${pc.id} (${hb.hostname})`)
+  }
+
+  return pc
+}
+
+/** Process a heartbeat from a PC agent */
+function processHeartbeat(hb) {
+  const db = readDB()
+  const pc = matchOrCreatePC(db, hb)
+  const key = `${hb.labId}-${hb.pcNum}`
+
+  // Update specs from agent data
+  let changed = false
+  if (hb.ipAddress && pc.specs.ipAddress !== hb.ipAddress) { pc.specs.ipAddress = hb.ipAddress; changed = true }
+  if (hb.macAddress && pc.specs.macAddress !== hb.macAddress) { pc.specs.macAddress = hb.macAddress; changed = true }
+  if (hb.cpu && pc.specs.cpu !== hb.cpu) { pc.specs.cpu = hb.cpu; changed = true }
+  if (hb.ram && pc.specs.ram !== hb.ram) { pc.specs.ram = hb.ram; changed = true }
+  if (hb.storage && pc.specs.storage !== hb.storage) { pc.specs.storage = hb.storage; changed = true }
+  if (hb.os && pc.specs.os !== hb.os) { pc.specs.os = hb.os; changed = true }
+  if (hb.osBuild && pc.specs.osBuild !== hb.osBuild) { pc.specs.osBuild = hb.osBuild; changed = true }
+
+  // Track logged-in user → occupied / available
+  if (hb.loggedInUser && hb.loggedInUser !== 'Unknown' && hb.loggedInUser !== 'SYSTEM') {
+    if (pc.lastStudent !== hb.loggedInUser) {
+      pc.lastStudent = hb.loggedInUser
+      pc.lastUsed = new Date().toISOString().replace('T', ' ').slice(0, 16)
+      changed = true
+    }
+    if (pc.status !== 'maintenance' && pc.status !== 'occupied') {
+      pc.status = 'occupied'
+      changed = true
+    }
+  } else {
+    // No user logged in → available (unless maintenance)
+    if (pc.status === 'occupied') {
+      pc.status = 'available'
+      changed = true
+    }
+  }
+
+  if (changed) writeDB(db)
+
+  // Update agent map
+  agentMap.set(key, {
+    ...hb,
+    lastSeen: new Date(),
+    online: true,
+    pcId: pc.id,
+  })
+
+  return { pcId: pc.id, status: pc.status, condition: pc.condition }
+}
+
+/** Periodically check for offline PCs (no heartbeat in OFFLINE_TIMEOUT) */
+function checkOfflinePCs() {
+  const now = Date.now()
+  const db = readDB()
+  let changed = false
+
+  for (const [key, agent] of agentMap.entries()) {
+    const elapsed = now - agent.lastSeen.getTime()
+    if (elapsed > OFFLINE_TIMEOUT && agent.online) {
+      agent.online = false
+      agentMap.set(key, agent)
+
+      // Mark PC as maintenance (offline)
+      const pc = db.pcs.find(p => p.id === agent.pcId)
+      if (pc && pc.status !== 'maintenance') {
+        pc.status = 'maintenance'
+        pc.condition = pc.condition === 'good' ? 'good' : pc.condition  // don't degrade condition
+        changed = true
+        console.log(`[Agent] PC ${pc.id} went offline (no heartbeat for ${Math.round(elapsed/1000)}s)`)
+      }
+    }
+  }
+
+  if (changed) writeDB(db)
+}
+
+// Check for offline PCs every 30 seconds
+setInterval(checkOfflinePCs, 30_000)
 
 // ─── Route handler ───────────────────────────────────────────────────────────
 
@@ -148,6 +286,53 @@ async function handleRequest(req, res) {
     db.pcs[idx].repairs.push(repair)
     writeDB(db)
     return json(res, 200, db.pcs[idx])
+  }
+
+  // ── Agent routes ──
+
+  if (path === '/api/agent/heartbeat' && method === 'POST') {
+    const key = req.headers['x-agent-key']
+    if (key !== AGENT_KEY) return json(res, 403, { error: 'Invalid agent key' })
+    const body = await parseBody(req)
+    if (!body.labId || !body.pcNum) return json(res, 400, { error: 'Missing labId or pcNum' })
+    const result = processHeartbeat(body)
+    return json(res, 200, result)
+  }
+
+  if (path === '/api/agent/status' && method === 'GET') {
+    const agents = Object.fromEntries(
+      [...agentMap.entries()].map(([k, v]) => [k, {
+        ...v,
+        lastSeen: v.lastSeen.toISOString(),
+        msSinceLastSeen: Date.now() - v.lastSeen.getTime(),
+      }])
+    )
+    return json(res, 200, { agents, count: agentMap.size })
+  }
+
+  // ── Static file serving (production mode) ──
+
+  if (existsSync(DIST_DIR) && !path.startsWith('/api/')) {
+    const MIME = {
+      '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
+      '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.woff2': 'font/woff2',
+    }
+    // Try exact file, then fallback to index.html (SPA routing)
+    let filePath = join(DIST_DIR, path === '/' ? 'index.html' : path)
+    if (!existsSync(filePath)) filePath = join(DIST_DIR, 'index.html')
+
+    try {
+      const data = readFileSync(filePath)
+      const ext = extname(filePath)
+      res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000',
+      })
+      return res.end(data)
+    } catch {
+      // Fall through to 404
+    }
   }
 
   return json(res, 404, { error: 'Not found' })
