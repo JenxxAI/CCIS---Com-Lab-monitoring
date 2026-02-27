@@ -599,7 +599,8 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
 
       {/* ── Lab name ──────────────────────────────────────────────────── */}
       <div className={cn(
-        'absolute top-3 left-1/2 -translate-x-1/2 text-[10px] font-semibold tracking-widest uppercase pointer-events-none z-20',
+        'absolute left-1/2 -translate-x-1/2 text-[10px] font-semibold tracking-widest uppercase pointer-events-none z-10',
+        editMode ? 'top-10' : 'top-3',
         dark ? 'text-slate-600' : 'text-slate-400',
       )}>
         {labName}
@@ -619,9 +620,9 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
             onRedo={() => redo(labId)}
             onAddFurniture={addNewFurniture}
           />
-          {/* Keyboard hint */}
+          {/* Keyboard hint — sits above the Add Item bar */}
           <div className={cn(
-            'absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] px-3 py-1 rounded-full pointer-events-none z-20',
+            'absolute bottom-12 sm:bottom-14 left-1/2 -translate-x-1/2 text-[9px] px-3 py-1 rounded-full pointer-events-none z-20 whitespace-nowrap',
             dark ? 'bg-dark-surface/80 text-slate-600' : 'bg-white/80 text-slate-400',
           )}>
             Ctrl+Z undo · Ctrl+Y redo · Del remove · Esc deselect · Shift+Click multi-select · Ctrl+A select all
