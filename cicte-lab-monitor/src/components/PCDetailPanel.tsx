@@ -1,4 +1,4 @@
-import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown, Plus, Check } from 'lucide-react'
+import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown, Plus, Check, Ticket, Activity } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from './Badge'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
@@ -9,6 +9,10 @@ import { LABS } from '@/lib/data'
 import { cn } from '@/lib/utils'
 import { toast } from '@/store/toast'
 import { APP_CATALOG, APP_MAP, AppIcon } from '@/lib/appCatalog'
+import { CreateTicketDialog } from './CreateTicketDialog'
+import { ActivityTimeline } from './ActivityTimeline'
+import { useTicketStore, PRIORITY_META, TICKET_STATUS_META } from '@/store/tickets'
+import { logActivity } from '@/store/activity'
 import type { PCStatus, PCCondition } from '@/types'
 
 function KV({ label, value, mono = false }: {
@@ -51,10 +55,15 @@ export function PCDetailPanel() {
   const { selectedPC, setSelectedPC, activeLab, updatePC } = useLabStore()
   const { dark } = useThemeStore()
   const isAdmin = useAuthStore(s => s.isAdmin)
+  const user = useAuthStore(s => s.user)
   const lab = LABS.find(l => l.id === activeLab)
   const [showStatusPicker, setShowStatusPicker] = useState(false)
   const [showCondPicker, setShowCondPicker] = useState(false)
   const [showAppPicker, setShowAppPicker] = useState(false)
+  const [showTicketDialog, setShowTicketDialog] = useState(false)
+
+  const tickets = useTicketStore(s => s.tickets)
+  const pcTickets = tickets.filter(t => t.pcId === selectedPC?.id)
 
   if (!selectedPC) return null
 
@@ -66,12 +75,28 @@ export function PCDetailPanel() {
     updatePC({ ...selectedPC, status })
     setShowStatusPicker(false)
     toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} → ${STATUS_META[status].label}`)
+    logActivity({
+      pcId: selectedPC.id,
+      labId: selectedPC.labId,
+      type: 'status-change',
+      title: `Status → ${STATUS_META[status].label}`,
+      description: `Changed from ${STATUS_META[selectedPC.status].label}`,
+      performedBy: user?.name ?? 'Unknown',
+    })
   }
 
   const changeCondition = (condition: PCCondition) => {
     updatePC({ ...selectedPC, condition })
     setShowCondPicker(false)
     toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} → ${COND_META[condition].label}`)
+    logActivity({
+      pcId: selectedPC.id,
+      labId: selectedPC.labId,
+      type: 'condition-change',
+      title: `Condition → ${COND_META[condition].label}`,
+      description: `Changed from ${COND_META[selectedPC.condition].label}`,
+      performedBy: user?.name ?? 'Unknown',
+    })
   }
 
   return (
@@ -380,6 +405,54 @@ export function PCDetailPanel() {
 
         {/* Repair History */}
         <SectionHead title={`Repairs \u00b7 ${selectedPC.repairs.length}`} icon={<Wrench size={11} />} />
+
+        {/* Create Ticket button for admin */}
+        {isAdmin && (
+          <button
+            onClick={() => setShowTicketDialog(true)}
+            className={cn(
+              'w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed text-[11px] font-medium transition-colors mb-2',
+              dark
+                ? 'border-dark-border text-slate-500 hover:border-accent hover:text-accent'
+                : 'border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-500'
+            )}
+          >
+            <Ticket size={12} />
+            Create Repair Ticket
+          </button>
+        )}
+
+        {/* Open tickets for this PC */}
+        {pcTickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length > 0 && (
+          <div className="mb-2">
+            <p className={cn('text-[10px] font-semibold mb-1', dark ? 'text-slate-500' : 'text-slate-400')}>
+              Open Tickets
+            </p>
+            {pcTickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').map(t => {
+              const pmeta = PRIORITY_META[t.priority]
+              const smeta = TICKET_STATUS_META[t.status]
+              return (
+                <div
+                  key={t.id}
+                  className={cn(
+                    'px-3 py-2 rounded-lg mb-1.5 border-l-2',
+                    dark ? 'bg-dark-surfaceAlt border border-dark-border' : 'bg-slate-50 border border-slate-100'
+                  )}
+                  style={{ borderLeftColor: pmeta.color }}
+                >
+                  <div className={cn('text-[11px] font-semibold', dark ? 'text-slate-200' : 'text-slate-800')}>
+                    {t.title}
+                  </div>
+                  <div className={cn('flex items-center gap-1.5 mt-0.5 text-[10px]', dark ? 'text-slate-500' : 'text-slate-400')}>
+                    <Badge color={pmeta.color} bg={pmeta.bg}>{pmeta.label}</Badge>
+                    <Badge color={smeta.color} bg={smeta.color + '18'}>{smeta.label}</Badge>
+                    <span>· {t.assignedTo}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
         {selectedPC.repairs.length === 0 ? (
           <p className={cn('text-[12px] italic', dark ? 'text-slate-600' : 'text-slate-400')}>
             No repairs logged.
@@ -406,6 +479,10 @@ export function PCDetailPanel() {
           ))
         )}
 
+        {/* ── Activity Timeline ─────────────────────────────────────── */}
+        <SectionHead title="Activity" icon={<Activity size={11} />} />
+        <ActivityTimeline pcId={selectedPC.id} labId={selectedPC.labId} limit={8} />
+
         {/* Quick summary bar */}
         <div className={cn(
           'mt-5 p-3 rounded-xl text-center',
@@ -431,9 +508,24 @@ export function PCDetailPanel() {
               <div className={cn('font-semibold', selectedPC.repairs.length > 3 ? 'text-orange-500' : (dark ? 'text-slate-200' : 'text-slate-700'))}>{selectedPC.repairs.length}</div>
               <div className={dark ? 'text-slate-600' : 'text-slate-400'}>Repairs</div>
             </div>
+            <div>
+              <div className={cn('font-semibold', pcTickets.filter(t => t.status === 'open').length > 0 ? 'text-red-400' : (dark ? 'text-slate-200' : 'text-slate-700'))}>{pcTickets.length}</div>
+              <div className={dark ? 'text-slate-600' : 'text-slate-400'}>Tickets</div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Ticket creation dialog */}
+      {selectedPC && (
+        <CreateTicketDialog
+          open={showTicketDialog}
+          pcId={selectedPC.id}
+          labId={selectedPC.labId}
+          pcNum={selectedPC.num}
+          onClose={() => setShowTicketDialog(false)}
+        />
+      )}
     </aside>
   )
 }

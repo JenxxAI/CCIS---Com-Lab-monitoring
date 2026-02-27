@@ -12,9 +12,10 @@ import { useSocket } from '@/hooks/useSocket'
 import { cn } from '@/lib/utils'
 
 // Lazy-loaded views — each in its own chunk
-const MapView       = lazy(() => import('@/pages/MapView').then(m => ({ default: m.MapView })))
-const ListView      = lazy(() => import('@/pages/ListView').then(m => ({ default: m.ListView })))
-const AnalyticsView = lazy(() => import('@/pages/AnalyticsView').then(m => ({ default: m.AnalyticsView })))
+const MapView        = lazy(() => import('@/pages/MapView').then(m => ({ default: m.MapView })))
+const ListView       = lazy(() => import('@/pages/ListView').then(m => ({ default: m.ListView })))
+const AnalyticsView  = lazy(() => import('@/pages/AnalyticsView').then(m => ({ default: m.AnalyticsView })))
+const MaintenanceHub = lazy(() => import('@/pages/MaintenanceHub').then(m => ({ default: m.MaintenanceHub })))
 
 // Suspense loading indicator
 function ViewLoader() {
@@ -44,9 +45,10 @@ function SubNav() {
   }, [editMode, location.pathname])
 
   const tabs = [
-    { to: '/',          label: 'Lab Map'     },
-    { to: '/list',      label: 'PC Registry' },
-    { to: '/analytics', label: 'Analytics'   },
+    { to: '/',            label: 'Lab Map'      },
+    { to: '/list',        label: 'PC Registry'  },
+    { to: '/analytics',   label: 'Analytics'    },
+    { to: '/maintenance', label: 'Maintenance'  },
   ]
 
   return (
@@ -148,6 +150,7 @@ export default function App() {
                     <Route path="/" element={<MapView />} />
                     <Route path="/list" element={<ListView />} />
                     <Route path="/analytics" element={<AnalyticsView />} />
+                    <Route path="/maintenance" element={<MaintenanceHub />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>
