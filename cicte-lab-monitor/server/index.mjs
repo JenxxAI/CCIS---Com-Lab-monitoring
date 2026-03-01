@@ -32,12 +32,17 @@ function writeDB(data) {
   writeFileSync(DB_PATH, JSON.stringify(data, null, 2))
 }
 
+// Allowed origin — set CORS_ORIGIN env var in production (e.g. https://your-app.com).
+// Falls back to localhost for development only.
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173'
+
 function json(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': CORS_ORIGIN,
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Vary': 'Origin',
   })
   res.end(JSON.stringify(body))
 }
@@ -53,30 +58,96 @@ function parseBody(req) {
   })
 }
 
-// ─── Simple JWT-like token (base64 for demo, NOT production-grade) ───────────
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+// NOTE: This uses HMAC-SHA256-signed tokens. Set TOKEN_SECRET in your env.
+// Do NOT use the default secret in production.
 
+import { createHmac } from 'node:crypto'
+
+const TOKEN_SECRET = process.env.TOKEN_SECRET
+if (!TOKEN_SECRET) {
+  console.warn('[SECURITY] TOKEN_SECRET env var is not set. Using an insecure default — set it before deploying!')
+}
+const _SECRET = TOKEN_SECRET || 'cicte-dev-secret-change-me'
+
+// Credentials — set via env vars; fallback values are for local dev only.
 const USERS = [
-  { id: 'admin-1', username: 'admin',  password: 'admin123',  role: 'admin',  name: 'Admin Ramos'    },
-  { id: 'viewer-1', username: 'viewer', password: 'viewer123', role: 'viewer', name: 'Vol. Dela Rosa' },
+  {
+    id: 'admin-1',
+    username: process.env.ADMIN_USER || 'admin',
+    password: process.env.ADMIN_PASS || 'admin123',
+    role: 'admin',
+    name: 'Admin Ramos',
+  },
+  {
+    id: 'viewer-1',
+    username: process.env.VIEWER_USER || 'viewer',
+    password: process.env.VIEWER_PASS || 'viewer123',
+    role: 'viewer',
+    name: 'Vol. Dela Rosa',
+  },
 ]
+
+function sign(payload) {
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  const sig  = createHmac('sha256', _SECRET).update(data).digest('base64url')
+  return `${data}.${sig}`
+}
 
 function makeToken(user) {
   const payload = { id: user.id, username: user.username, role: user.role, name: user.name }
-  return Buffer.from(JSON.stringify(payload)).toString('base64')
+  return sign(payload)
 }
 
 function verifyToken(authHeader) {
   if (!authHeader?.startsWith('Bearer ')) return null
+  const token = authHeader.slice(7)
+  const dot = token.lastIndexOf('.')
+  if (dot === -1) return null
+  const data = token.slice(0, dot)
+  const sig  = token.slice(dot + 1)
+  const expected = createHmac('sha256', _SECRET).update(data).digest('base64url')
+  // Constant-time comparison to prevent timing attacks
+  if (sig.length !== expected.length) return null
+  let diff = 0
+  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i)
+  if (diff !== 0) return null
   try {
-    return JSON.parse(Buffer.from(authHeader.slice(7), 'base64').toString())
+    return JSON.parse(Buffer.from(data, 'base64url').toString())
   } catch {
     return null
   }
 }
 
+/** Require a valid token; returns user or sends 401 and returns null. */
+function requireAuth(req, res) {
+  const user = verifyToken(req.headers.authorization)
+  if (!user) { json(res, 401, { error: 'Not authenticated' }); return null }
+  return user
+}
+
+/** Require admin role; returns user or sends 403 and returns null. */
+function requireAdmin(req, res) {
+  const user = requireAuth(req, res)
+  if (!user) return null
+  if (user.role !== 'admin') { json(res, 403, { error: 'Forbidden' }); return null }
+  return user
+}
+
+/** Strip sensitive PC fields for viewer role. */
+function sanitizePC(pc, role) {
+  if (role === 'admin') return pc
+  const { password, routerPassword, routerSSID, ...safe } = pc
+  return safe
+}
+
 // ─── Agent tracking (in-memory, keyed by labId-pcNum) ────────────────────────
 
-const AGENT_KEY      = process.env.AGENT_KEY || 'cicte-agent-2026'
+const AGENT_KEY = process.env.AGENT_KEY
+if (!AGENT_KEY) {
+  console.warn('[SECURITY] AGENT_KEY env var is not set. Using insecure default — set it before deploying!')
+}
+const _AGENT_KEY = AGENT_KEY || 'cicte-agent-2026'
 const OFFLINE_TIMEOUT = 90_000  // 90 seconds without heartbeat → offline
 
 /**
@@ -220,9 +291,10 @@ async function handleRequest(req, res) {
   // CORS preflight
   if (method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': CORS_ORIGIN,
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Vary': 'Origin',
     })
     return res.end()
   }
@@ -240,8 +312,8 @@ async function handleRequest(req, res) {
   }
 
   if (path === '/api/auth/me' && method === 'GET') {
-    const user = verifyToken(req.headers.authorization)
-    if (!user) return json(res, 401, { error: 'Not authenticated' })
+    const user = requireAuth(req, res)
+    if (!user) return
     return json(res, 200, { user })
   }
 
@@ -249,51 +321,74 @@ async function handleRequest(req, res) {
 
   const db = readDB()
 
+  // Allowed fields for PATCH updates (prevents overwriting id, labId, etc.)
+  const PC_PATCH_ALLOW = new Set([
+    'status', 'condition', 'password', 'lastPasswordChange', 'lastPasswordChangedBy',
+    'lastStudent', 'lastUsed', 'routerSSID', 'routerPassword', 'specs', 'installedApps',
+  ])
+
   if (path === '/api/labs' && method === 'GET') {
+    const caller = requireAuth(req, res)
+    if (!caller) return
     return json(res, 200, db.labs)
   }
 
   const labPcsMatch = path.match(/^\/api\/labs\/([^/]+)\/pcs$/)
   if (labPcsMatch && method === 'GET') {
+    const caller = requireAuth(req, res)
+    if (!caller) return
     const labId = labPcsMatch[1]
-    const pcs = db.pcs.filter(p => p.labId === labId)
+    const pcs = db.pcs.filter(p => p.labId === labId).map(p => sanitizePC(p, caller.role))
     return json(res, 200, pcs)
   }
 
   const pcMatch = path.match(/^\/api\/pcs\/([^/]+)$/)
   if (pcMatch && method === 'GET') {
+    const caller = requireAuth(req, res)
+    if (!caller) return
     const pc = db.pcs.find(p => p.id === pcMatch[1])
-    return pc ? json(res, 200, pc) : json(res, 404, { error: 'PC not found' })
+    return pc ? json(res, 200, sanitizePC(pc, caller.role)) : json(res, 404, { error: 'PC not found' })
   }
 
   if (pcMatch && method === 'PATCH') {
+    const caller = requireAdmin(req, res)
+    if (!caller) return
     const body = await parseBody(req)
     const idx = db.pcs.findIndex(p => p.id === pcMatch[1])
     if (idx === -1) return json(res, 404, { error: 'PC not found' })
-    db.pcs[idx] = { ...db.pcs[idx], ...body, id: db.pcs[idx].id, labId: db.pcs[idx].labId }
+    // Only allow whitelisted fields to be updated
+    const safeBody = Object.fromEntries(
+      Object.entries(body).filter(([k]) => PC_PATCH_ALLOW.has(k))
+    )
+    db.pcs[idx] = { ...db.pcs[idx], ...safeBody }
     writeDB(db)
-    return json(res, 200, db.pcs[idx])
+    return json(res, 200, sanitizePC(db.pcs[idx], caller.role))
   }
 
   const repairMatch = path.match(/^\/api\/pcs\/([^/]+)\/repairs$/)
   if (repairMatch && method === 'POST') {
+    const caller = requireAdmin(req, res)
+    if (!caller) return
     const body = await parseBody(req)
     const idx = db.pcs.findIndex(p => p.id === repairMatch[1])
     if (idx === -1) return json(res, 404, { error: 'PC not found' })
     const repair = {
       id: `r-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      ...body,
+      date:  body.date  || new Date().toISOString().slice(0, 10),
+      type:  String(body.type  || '').slice(0, 100),
+      by:    String(body.by    || '').slice(0, 80),
+      notes: String(body.notes || '').slice(0, 500),
     }
     db.pcs[idx].repairs.push(repair)
     writeDB(db)
-    return json(res, 200, db.pcs[idx])
+    return json(res, 200, sanitizePC(db.pcs[idx], caller.role))
   }
 
   // ── Agent routes ──
 
   if (path === '/api/agent/heartbeat' && method === 'POST') {
     const key = req.headers['x-agent-key']
-    if (key !== AGENT_KEY) return json(res, 403, { error: 'Invalid agent key' })
+    if (key !== _AGENT_KEY) return json(res, 403, { error: 'Invalid agent key' })
     const body = await parseBody(req)
     if (!body.labId || !body.pcNum) return json(res, 400, { error: 'Missing labId or pcNum' })
     const result = processHeartbeat(body)
@@ -301,6 +396,8 @@ async function handleRequest(req, res) {
   }
 
   if (path === '/api/agent/status' && method === 'GET') {
+    const caller = requireAdmin(req, res)
+    if (!caller) return
     const agents = Object.fromEntries(
       [...agentMap.entries()].map(([k, v]) => [k, {
         ...v,

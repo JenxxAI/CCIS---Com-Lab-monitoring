@@ -87,9 +87,9 @@ describe('AuthStore', () => {
     expect(s.isAdmin).toBe(true)
   })
 
-  it('login sets isAdmin false for viewer role', () => {
+  it('login sets isAdmin false for non-admin role', () => {
     useAuthStore.getState().login('tok-2', {
-      id: 'u2', username: 'viewer', role: 'viewer', name: 'Viewer',
+      id: 'u2', username: 'volunteer', role: 'volunteer', name: 'Volunteer',
     })
     expect(useAuthStore.getState().isAdmin).toBe(false)
   })

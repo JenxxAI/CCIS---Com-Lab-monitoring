@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { PC, ViewTab, StatusFilter, ConditionFilter, Notification, Position, FurnitureItem } from '@/types'
+import type { PC, ViewTab, StatusFilter, ConditionFilter, Notification, Position, FurnitureItem, PCStatus, PCCondition } from '@/types'
 import { generateAllLabData } from '@/lib/data'
 
 // ─── UI / Theme Store ─────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ export const useThemeStore = create<ThemeStore>()(
 
 // ─── Auth Store (persisted) ───────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'viewer'
+export type UserRole = 'admin' | 'volunteer' | 'student'
 
 export interface AuthUser {
   id:       string
@@ -36,9 +36,11 @@ export interface AuthUser {
 }
 
 interface AuthStore {
-  token:    string | null
-  user:     AuthUser | null
-  isAdmin:  boolean
+  token:      string | null
+  user:       AuthUser | null
+  isAdmin:    boolean
+  isVolunteer: boolean
+  canManage:  boolean   // admin or volunteer
 
   login:    (token: string, user: AuthUser) => void
   logout:   () => void
@@ -47,17 +49,21 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
-      token:   null,
-      user:    null,
-      isAdmin: false,
+      token:      null,
+      user:       null,
+      isAdmin:    false,
+      isVolunteer: false,
+      canManage:  false,
 
       login: (token, user) => set({
         token,
         user,
-        isAdmin: user.role === 'admin',
+        isAdmin:     user.role === 'admin',
+        isVolunteer: user.role === 'volunteer',
+        canManage:   user.role === 'admin' || user.role === 'volunteer',
       }),
 
-      logout: () => set({ token: null, user: null, isAdmin: false }),
+      logout: () => set({ token: null, user: null, isAdmin: false, isVolunteer: false, canManage: false }),
     }),
     { name: 'cicte-auth' }
   )
@@ -75,6 +81,9 @@ interface LabStore {
   searchQuery:  string
   isLoading:    boolean
 
+  // Multi-select for batch operations
+  selectedPCIds: Set<string>
+
   setActiveLab:    (id: string)     => void
   setSelectedPC:   (pc: PC | null)  => void
   setActiveView:   (v: ViewTab)     => void
@@ -84,6 +93,13 @@ interface LabStore {
   updatePC:        (pc: PC)         => void
   setLabPCs:       (labId: string, pcs: PC[]) => void
   loadLabData:     (labId: string)  => Promise<void>
+
+  // Batch selection
+  toggleSelectPC:  (pcId: string)   => void
+  selectAllPCs:    ()               => void
+  clearSelection:  ()               => void
+  batchUpdateStatus:    (status: PCStatus)       => void
+  batchUpdateCondition: (condition: PCCondition)  => void
 }
 
 export const useLabStore = create<LabStore>()((set, get) => ({
@@ -95,9 +111,10 @@ export const useLabStore = create<LabStore>()((set, get) => ({
   condFilter:   'all',
   searchQuery:  '',
   isLoading:    false,
+  selectedPCIds: new Set<string>(),
 
   setActiveLab: (id) => {
-    set({ activeLab: id, selectedPC: null })
+    set({ activeLab: id, selectedPC: null, selectedPCIds: new Set() })
     get().loadLabData(id)
   },
   setSelectedPC: (pc) => set(s => ({
@@ -141,6 +158,45 @@ export const useLabStore = create<LabStore>()((set, get) => ({
       set({ isLoading: false })
     }
   },
+
+  // ── Batch Selection ──────────────────────────────────────────────────
+  toggleSelectPC: (pcId) => set(s => {
+    const next = new Set(s.selectedPCIds)
+    if (next.has(pcId)) next.delete(pcId)
+    else next.add(pcId)
+    return { selectedPCIds: next }
+  }),
+
+  selectAllPCs: () => set(s => {
+    const pcs = s.labData[s.activeLab] ?? []
+    return { selectedPCIds: new Set(pcs.map(p => p.id)) }
+  }),
+
+  clearSelection: () => set({ selectedPCIds: new Set() }),
+
+  batchUpdateStatus: (status) => set(s => {
+    const ids = s.selectedPCIds
+    const labPcs = s.labData[s.activeLab] ?? []
+    return {
+      labData: {
+        ...s.labData,
+        [s.activeLab]: labPcs.map(p => ids.has(p.id) ? { ...p, status } : p),
+      },
+      selectedPCIds: new Set(),
+    }
+  }),
+
+  batchUpdateCondition: (condition) => set(s => {
+    const ids = s.selectedPCIds
+    const labPcs = s.labData[s.activeLab] ?? []
+    return {
+      labData: {
+        ...s.labData,
+        [s.activeLab]: labPcs.map(p => ids.has(p.id) ? { ...p, condition } : p),
+      },
+      selectedPCIds: new Set(),
+    }
+  }),
 }))
 
 // ─── Notifications Store ──────────────────────────────────────────────────────
@@ -148,7 +204,9 @@ export const useLabStore = create<LabStore>()((set, get) => ({
 interface NotifStore {
   notifications: Notification[]
   addNotif:      (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
+  markRead:      (id: string) => void
   markAllRead:   () => void
+  removeNotif:   (id: string) => void
   clearAll:      () => void
 }
 
@@ -165,10 +223,16 @@ export const useNotifStore = create<NotifStore>()(
             read:      false,
           },
           ...s.notifications,
-        ].slice(0, 50), // keep max 50
+        ].slice(0, 100), // keep max 100
+      })),
+      markRead: (id) => set(s => ({
+        notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n),
       })),
       markAllRead: () => set(s => ({
         notifications: s.notifications.map(n => ({ ...n, read: true })),
+      })),
+      removeNotif: (id) => set(s => ({
+        notifications: s.notifications.filter(n => n.id !== id),
       })),
       clearAll: () => set({ notifications: [] }),
     }),

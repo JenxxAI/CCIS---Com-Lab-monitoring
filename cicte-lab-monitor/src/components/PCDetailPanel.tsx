@@ -54,11 +54,15 @@ function SectionHead({ title, icon }: { title: string; icon?: React.ReactNode })
 export function PCDetailPanel() {
   const { selectedPC, setSelectedPC, activeLab, updatePC } = useLabStore()
   const { dark } = useThemeStore()
-  const isAdmin = useAuthStore(s => s.isAdmin)
-  const user = useAuthStore(s => s.user)
+  const isAdmin    = useAuthStore(s => s.isAdmin)
+  const canManage  = useAuthStore(s => s.canManage)
+  const user       = useAuthStore(s => s.user)
+  const isStudent  = user?.role === 'student'
   const lab = LABS.find(l => l.id === activeLab)
   const [showStatusPicker, setShowStatusPicker] = useState(false)
   const [showCondPicker, setShowCondPicker] = useState(false)
+  const [showPassForm, setShowPassForm] = useState(false)
+  const [newPass, setNewPass] = useState('')
   const [showAppPicker, setShowAppPicker] = useState(false)
   const [showTicketDialog, setShowTicketDialog] = useState(false)
 
@@ -140,14 +144,14 @@ export function PCDetailPanel() {
           {/* Status badge */}
           <div className="relative">
             <button
-              onClick={() => isAdmin && setShowStatusPicker(p => !p)}
-              className={cn('inline-flex items-center gap-1', isAdmin && 'cursor-pointer')}
-              title={isAdmin ? 'Click to change status' : undefined}
+              onClick={() => canManage && setShowStatusPicker(p => !p)}
+              className={cn('inline-flex items-center gap-1', canManage && 'cursor-pointer')}
+              title={canManage ? 'Click to change status' : undefined}
             >
               <Badge color={STATUS_HEX[selectedPC.status]} bg={STATUS_BG_HEX[selectedPC.status]}>
                 {sc.label}
               </Badge>
-              {isAdmin && <ChevronDown size={10} className={dark ? 'text-slate-600' : 'text-slate-400'} />}
+              {canManage && <ChevronDown size={10} className={dark ? 'text-slate-600' : 'text-slate-400'} />}
             </button>
             {showStatusPicker && (
               <div className={cn(
@@ -175,14 +179,14 @@ export function PCDetailPanel() {
           {/* Condition badge */}
           <div className="relative">
             <button
-              onClick={() => isAdmin && setShowCondPicker(p => !p)}
-              className={cn('inline-flex items-center gap-1', isAdmin && 'cursor-pointer')}
-              title={isAdmin ? 'Click to change condition' : undefined}
+              onClick={() => canManage && setShowCondPicker(p => !p)}
+              className={cn('inline-flex items-center gap-1', canManage && 'cursor-pointer')}
+              title={canManage ? 'Click to change condition' : undefined}
             >
               <Badge color={COND_HEX[selectedPC.condition]} bg={COND_HEX[selectedPC.condition] + '18'}>
                 {cc.label}
               </Badge>
-              {isAdmin && <ChevronDown size={10} className={dark ? 'text-slate-600' : 'text-slate-400'} />}
+              {canManage && <ChevronDown size={10} className={dark ? 'text-slate-600' : 'text-slate-400'} />}
             </button>
             {showCondPicker && (
               <div className={cn(
@@ -290,7 +294,7 @@ export function PCDetailPanel() {
                 )}>
                   {app.name}
                 </span>
-                {isAdmin && (
+                {canManage && (
                   <button
                     onClick={() => {
                       const next = selectedPC.installedApps.filter(id => id !== appId)
@@ -314,8 +318,8 @@ export function PCDetailPanel() {
           })}
         </div>
 
-        {/* Admin: Add apps button + picker */}
-        {isAdmin && (
+        {/* Manage: Add apps button + picker */}
+        {canManage && (
           <div className="relative mb-1">
             <button
               onClick={() => setShowAppPicker(p => !p)}
@@ -392,91 +396,160 @@ export function PCDetailPanel() {
           </div>
         )}
 
-        {/* Credentials */}
-        <SectionHead title="Credentials" icon={<Shield size={11} />} />
-        <KV label="Password" value={selectedPC.password} mono />
-        <KV label="Changed by" value={selectedPC.lastPasswordChangedBy} />
-        <KV label="Date" value={selectedPC.lastPasswordChange} />
-
-        {/* Last Session */}
-        <SectionHead title="Last Session" icon={<Clock size={11} />} />
-        <KV label="Student" value={selectedPC.lastStudent} />
-        <KV label="Time" value={selectedPC.lastUsed} />
-
-        {/* Repair History */}
-        <SectionHead title={`Repairs \u00b7 ${selectedPC.repairs.length}`} icon={<Wrench size={11} />} />
-
-        {/* Create Ticket button for admin */}
+        {/* Credentials — admin only */}
         {isAdmin && (
-          <button
-            onClick={() => setShowTicketDialog(true)}
-            className={cn(
-              'w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed text-[11px] font-medium transition-colors mb-2',
-              dark
-                ? 'border-dark-border text-slate-500 hover:border-accent hover:text-accent'
-                : 'border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-500'
+          <>
+            <SectionHead title="Credentials" icon={<Shield size={11} />} />
+            <KV label="Password" value={selectedPC.password} mono />
+            <KV label="Changed by" value={selectedPC.lastPasswordChangedBy} />
+            <KV label="Date" value={selectedPC.lastPasswordChange} />
+
+            {/* Admin: change password inline */}
+            <div className="mt-1.5">
+            {showPassForm ? (
+              <div className="flex gap-1.5 mt-1">
+                <input
+                  type="password"
+                  autoFocus
+                  value={newPass}
+                  onChange={e => setNewPass(e.target.value)}
+                  placeholder="New password"
+                  className={cn(
+                    'flex-1 min-w-0 px-2 py-1 text-[11px] rounded-md border outline-none font-mono',
+                    dark
+                      ? 'bg-dark-surfaceAlt border-dark-border text-slate-200 placeholder:text-slate-600'
+                      : 'bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400'
+                  )}
+                  onKeyDown={e => e.key === 'Escape' && (setShowPassForm(false), setNewPass(''))}
+                />
+                <button
+                  disabled={!newPass.trim()}
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0]
+                    updatePC({ ...selectedPC, password: newPass.trim(), lastPasswordChange: today, lastPasswordChangedBy: user?.name ?? 'Admin' })
+                    logActivity({ pcId: selectedPC.id, labId: selectedPC.labId, type: 'password-change', title: 'Password Changed', description: `Password changed by ${user?.name ?? 'Admin'}`, performedBy: user?.name ?? 'Admin' })
+                    toast.success('Password updated')
+                    setShowPassForm(false)
+                    setNewPass('')
+                  }}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors',
+                    !newPass.trim()
+                      ? (dark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                      : 'bg-blue-600 hover:bg-blue-500 text-white'
+                  )}
+                >
+                  <Check size={11} />
+                </button>
+                <button
+                  onClick={() => { setShowPassForm(false); setNewPass('') }}
+                  className={cn('px-2 py-1 rounded-md text-[11px]', dark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')}
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowPassForm(true)}
+                className={cn(
+                  'text-[10px] font-medium mt-0.5',
+                  dark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'
+                )}
+              >
+                Change password…
+              </button>
             )}
-          >
-            <Ticket size={12} />
-            Create Repair Ticket
-          </button>
+          </div>
+          </>
         )}
 
-        {/* Open tickets for this PC */}
-        {pcTickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length > 0 && (
-          <div className="mb-2">
-            <p className={cn('text-[10px] font-semibold mb-1', dark ? 'text-slate-500' : 'text-slate-400')}>
-              Open Tickets
-            </p>
-            {pcTickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').map(t => {
-              const pmeta = PRIORITY_META[t.priority]
-              const smeta = TICKET_STATUS_META[t.status]
-              return (
+        {/* Last Session — hidden for student */}
+        {!isStudent && (
+          <>
+            <SectionHead title="Last Session" icon={<Clock size={11} />} />
+            <KV label="Student" value={selectedPC.lastStudent} />
+            <KV label="Time" value={selectedPC.lastUsed} />
+          </>
+        )}
+
+        {/* Repair History — hidden for student */}
+        {!isStudent && (
+          <>
+            <SectionHead title={`Repairs \u00b7 ${selectedPC.repairs.length}`} icon={<Wrench size={11} />} />
+
+            {/* Create Ticket button for admin/volunteer */}
+            {canManage && (
+              <button
+                onClick={() => setShowTicketDialog(true)}
+                className={cn(
+                  'w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed text-[11px] font-medium transition-colors mb-2',
+                  dark
+                    ? 'border-dark-border text-slate-500 hover:border-accent hover:text-accent'
+                    : 'border-slate-200 text-slate-400 hover:border-blue-400 hover:text-blue-500'
+                )}
+              >
+                <Ticket size={12} />
+                Create Repair Ticket
+              </button>
+            )}
+
+            {/* Open tickets for this PC */}
+            {pcTickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length > 0 && (
+              <div className="mb-2">
+                <p className={cn('text-[10px] font-semibold mb-1', dark ? 'text-slate-500' : 'text-slate-400')}>
+                  Open Tickets
+                </p>
+                {pcTickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').map(t => {
+                  const pmeta = PRIORITY_META[t.priority]
+                  const smeta = TICKET_STATUS_META[t.status]
+                  return (
+                    <div
+                      key={t.id}
+                      className={cn(
+                        'px-3 py-2 rounded-lg mb-1.5 border-l-2',
+                        dark ? 'bg-dark-surfaceAlt border border-dark-border' : 'bg-slate-50 border border-slate-100'
+                      )}
+                      style={{ borderLeftColor: pmeta.color }}
+                    >
+                      <div className={cn('text-[11px] font-semibold', dark ? 'text-slate-200' : 'text-slate-800')}>
+                        {t.title}
+                      </div>
+                      <div className={cn('flex items-center gap-1.5 mt-0.5 text-[10px]', dark ? 'text-slate-500' : 'text-slate-400')}>
+                        <Badge color={pmeta.color} bg={pmeta.bg}>{pmeta.label}</Badge>
+                        <Badge color={smeta.color} bg={smeta.color + '18'}>{smeta.label}</Badge>
+                        <span>· {t.assignedTo}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {selectedPC.repairs.length === 0 ? (
+              <p className={cn('text-[12px] italic', dark ? 'text-slate-600' : 'text-slate-400')}>
+                No repairs logged.
+              </p>
+            ) : (
+              selectedPC.repairs.slice().reverse().map((r) => (
                 <div
-                  key={t.id}
+                  key={r.id}
                   className={cn(
-                    'px-3 py-2 rounded-lg mb-1.5 border-l-2',
-                    dark ? 'bg-dark-surfaceAlt border border-dark-border' : 'bg-slate-50 border border-slate-100'
+                    'px-3 py-2 rounded-lg mb-1.5',
+                    dark
+                      ? 'bg-dark-surfaceAlt border border-dark-border'
+                      : 'bg-slate-50 border border-slate-100'
                   )}
-                  style={{ borderLeftColor: pmeta.color }}
                 >
-                  <div className={cn('text-[11px] font-semibold', dark ? 'text-slate-200' : 'text-slate-800')}>
-                    {t.title}
-                  </div>
-                  <div className={cn('flex items-center gap-1.5 mt-0.5 text-[10px]', dark ? 'text-slate-500' : 'text-slate-400')}>
-                    <Badge color={pmeta.color} bg={pmeta.bg}>{pmeta.label}</Badge>
-                    <Badge color={smeta.color} bg={smeta.color + '18'}>{smeta.label}</Badge>
-                    <span>· {t.assignedTo}</span>
+                  <div className={cn(
+                    'text-[12px] font-semibold',
+                    dark ? 'text-slate-200' : 'text-slate-800'
+                  )}>{r.type}</div>
+                  <div className={cn('text-[11px] mt-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
+                    {r.date} &middot; {r.by}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
-        {selectedPC.repairs.length === 0 ? (
-          <p className={cn('text-[12px] italic', dark ? 'text-slate-600' : 'text-slate-400')}>
-            No repairs logged.
-          </p>
-        ) : (
-          selectedPC.repairs.slice().reverse().map((r) => (
-            <div
-              key={r.id}
-              className={cn(
-                'px-3 py-2 rounded-lg mb-1.5',
-                dark
-                  ? 'bg-dark-surfaceAlt border border-dark-border'
-                  : 'bg-slate-50 border border-slate-100'
-              )}
-            >
-              <div className={cn(
-                'text-[12px] font-semibold',
-                dark ? 'text-slate-200' : 'text-slate-800'
-              )}>{r.type}</div>
-              <div className={cn('text-[11px] mt-0.5', dark ? 'text-slate-500' : 'text-slate-400')}>
-                {r.date} &middot; {r.by}
-              </div>
-            </div>
-          ))
+              ))
+            )}
+          </>
         )}
 
         {/* ── Activity Timeline ─────────────────────────────────────── */}

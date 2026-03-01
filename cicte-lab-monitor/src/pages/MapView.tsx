@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useLabStore, useThemeStore, useLayoutStore, useAuthStore } from '@/store'
 import { toast } from '@/store/toast'
 import { LABS } from '@/lib/data'
@@ -7,7 +8,9 @@ import { CANVAS_W, CANVAS_H } from '@/components/floorplan/constants'
 import { COND_HEX, COND_META } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { PCStatus, StatusFilter } from '@/types'
-import { Monitor } from 'lucide-react'
+import { Monitor, CalendarDays } from 'lucide-react'
+import { BatchActionsBar } from '@/components/BatchActionsBar'
+import { LabSchedulePanel } from '@/components/LabSchedulePanel'
 
 export function MapView() {
   const { dark } = useThemeStore()
@@ -18,6 +21,7 @@ export function MapView() {
   } = useLabStore()
   const { editMode, setEditMode, resetLayout } = useLayoutStore()
   const isAdmin = useAuthStore(s => s.isAdmin)
+  const [showSchedule, setShowSchedule] = useState(false)
 
   const lab  = LABS.find(l => l.id === activeLab)!
   const pcs  = labData[activeLab] ?? []
@@ -31,7 +35,7 @@ export function MapView() {
   ]
 
   return (
-    <div className="p-3 sm:p-6 animate-fade-in">
+    <div className="p-3 sm:p-6 animate-fade-in relative">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 sm:mb-5">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -43,6 +47,19 @@ export function MapView() {
               {pcs.length} workstations
             </p>
           </div>
+
+          {/* Schedule button */}
+          <button
+            onClick={() => setShowSchedule(true)}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150 flex items-center gap-1.5',
+              dark ? 'bg-dark-surfaceAlt border border-dark-border text-slate-400 hover:text-slate-200'
+                   : 'bg-blue-50 border border-blue-200 text-blue-600 hover:text-blue-800',
+            )}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Schedule
+          </button>
 
           {/* Edit Layout toggle — admin only */}
           {isAdmin && (
@@ -169,6 +186,16 @@ export function MapView() {
           </div>
         ))}
       </div>
+      {/* Batch actions bar (admin only) */}
+      <BatchActionsBar />
+
+      {/* Lab Schedule modal */}
+      {showSchedule && (
+        <LabSchedulePanel
+          labId={activeLab}
+          onClose={() => setShowSchedule(false)}
+        />
+      )}
     </div>
   )
 }

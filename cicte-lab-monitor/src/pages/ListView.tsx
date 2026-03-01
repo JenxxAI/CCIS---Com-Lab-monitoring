@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLabStore, useThemeStore } from '@/store'
 import { LABS } from '@/lib/data'
 import { Badge } from '@/components/Badge'
-import { STATUS_HEX, STATUS_BG_HEX, COND_HEX, COND_META, STATUS_META } from '@/lib/utils'
-import { cn } from '@/lib/utils'
-import { Search, ChevronUp, ChevronDown } from 'lucide-react'
+import { STATUS_HEX, STATUS_BG_HEX, COND_HEX, COND_META, STATUS_META, cn, downloadCSV } from '@/lib/utils'
+import { Search, ChevronUp, ChevronDown, Download } from 'lucide-react'
 import type { PC } from '@/types'
+import { BatchActionsBar } from '@/components/BatchActionsBar'
 
 type SortKey = 'num' | 'status' | 'condition' | 'lastStudent' | 'lastUsed' | 'lastPasswordChangedBy' | 'repairs'
 type SortDir = 'asc' | 'desc'
@@ -33,6 +33,14 @@ export function ListView() {
 
   const lab = LABS.find(l => l.id === activeLab)!
   const pcs = labData[activeLab] ?? []
+
+  // Focus search when Ctrl+/ shortcut fires
+  const searchRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const handler = () => searchRef.current?.focus()
+    window.addEventListener('cicte:focus-search', handler)
+    return () => window.removeEventListener('cicte:focus-search', handler)
+  }, [])
 
   const filtered = pcs.filter(pc => {
     if (statusFilter !== 'all' && pc.status !== statusFilter) return false
@@ -67,7 +75,7 @@ export function ListView() {
   ]
 
   return (
-    <div className="p-3 sm:p-6 animate-fade-in">
+    <div className="p-3 sm:p-6 animate-fade-in relative">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 sm:mb-5">
         <div>
@@ -87,8 +95,9 @@ export function ListView() {
           )}>
             <Search size={13} className={dark ? 'text-slate-500' : 'text-slate-400'} />
             <input
+              ref={searchRef}
               type="text"
-              placeholder="Search student, staff…"
+              placeholder="Search student, staff… (Ctrl+/)"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className={cn(
@@ -119,6 +128,33 @@ export function ListView() {
               </button>
             )
           })}
+
+          {/* Export CSV */}
+          <button
+            onClick={() => downloadCSV(
+              `${lab.name.replace(/\s+/g, '-')}-pcs.csv`,
+              ['PC', 'Status', 'Condition', 'Last Student', 'Last Used', 'Changed By', 'Repairs'],
+              sorted.map(pc => [
+                `PC-${pc.num}`,
+                STATUS_META[pc.status].label,
+                COND_META[pc.condition].label,
+                pc.lastStudent,
+                pc.lastUsed,
+                pc.lastPasswordChangedBy,
+                String(pc.repairs.length),
+              ])
+            )}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors',
+              dark
+                ? 'bg-dark-surfaceAlt border-dark-border text-slate-400 hover:text-slate-200'
+                : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
+            )}
+            title="Export visible rows as CSV"
+          >
+            <Download size={12} />
+            Export
+          </button>
         </div>
       </div>
 
@@ -268,6 +304,8 @@ export function ListView() {
           )
         })}
       </div>
+      {/* Batch actions bar (admin only) */}
+      <BatchActionsBar />
     </div>
   )
 }
