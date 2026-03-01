@@ -47,6 +47,7 @@ export default {
       animation: {
         'live-pulse': 'livePulse 2.2s ease-in-out infinite',
         'fade-in':    'fadeIn .22s ease',
+        'slide-in':   'slideIn .22s cubic-bezier(.25,.46,.45,.94)',
       },
       keyframes: {
         livePulse: {
@@ -55,6 +56,10 @@ export default {
         },
         fadeIn: {
           from: { opacity: '0', transform: 'translateY(5px)' },
+          to:   { opacity: '1', transform: 'none' },
+        },
+        slideIn: {
+          from: { opacity: '0', transform: 'translateX(-16px)' },
           to:   { opacity: '1', transform: 'none' },
         },
       },

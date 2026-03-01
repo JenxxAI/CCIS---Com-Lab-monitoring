@@ -1,8 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Sun, Moon, Bell, LogOut, Check, Trash2 } from 'lucide-react'
+import { Menu, Sun, Moon, Bell, LogOut, Check, Trash2, ShieldCheck, UserCog, GraduationCap } from 'lucide-react'
 import { useThemeStore, useLabStore, useNotifStore, useAuthStore, useLayoutStore } from '@/store'
+import type { UserRole } from '@/store'
 import { cn } from '@/lib/utils'
+import { toast } from '@/store/toast'
 import { EditGuardDialog } from './EditGuardDialog'
+
+const ROLE_META: Record<UserRole, { label: string; color: string; icon: React.ReactNode }> = {
+  admin:     { label: 'Admin',     color: '#5b7fff', icon: <ShieldCheck size={10} /> },
+  volunteer: { label: 'Volunteer', color: '#a78bfa', icon: <UserCog size={10} /> },
+  student:   { label: 'Student',   color: '#94a3b8', icon: <GraduationCap size={10} /> },
+}
+import { AlertRulesManager } from './AlertRulesManager'
+import { HealthBar } from './HealthBar'
 
 function formatTimeAgo(date: Date): string {
   const diff = Date.now() - date.getTime()
@@ -87,7 +97,7 @@ export function Topbar() {
         </div>
       </div>
 
-      {/* Global stats — hidden on mobile */}
+      {/* Global stats + health bar — hidden on mobile */}
       <div className="ml-auto hidden sm:flex items-center gap-0">
         {[
           { l: 'Total',       v: total,       c: dark ? '#e8ecf4' : '#0f1724' },
@@ -113,6 +123,7 @@ export function Topbar() {
             </div>
           </div>
         ))}
+        <div className="ml-2"><HealthBar /></div>
       </div>
 
       {/* Live indicator — pushed right on mobile */}
@@ -229,6 +240,10 @@ export function Topbar() {
                   )
                 })
               )}
+              {/* Alert rules manager */}
+              <div className="border-t mt-2 pt-2" style={{ borderColor: dark ? '#232b3e' : '#e5e7eb' }}>
+                <AlertRulesManager />
+              </div>
             </div>
           </div>
         )}
@@ -256,20 +271,18 @@ export function Topbar() {
             <span className={cn('text-[11px] font-medium leading-tight', dark ? 'text-slate-300' : 'text-slate-700')}>
               {user.name}
             </span>
-            <span className={cn(
-              'text-[9px] uppercase tracking-wider font-semibold leading-tight',
-              user.role === 'admin'
-                ? 'text-[#5b7fff]'
-                : (dark ? 'text-slate-600' : 'text-slate-400')
-            )}>
-              {user.role}
-            </span>
+            {(() => {
+              const rm = ROLE_META[user.role as UserRole] ?? ROLE_META.student
+              return (
+                <span className="flex items-center gap-0.5 text-[9px] uppercase tracking-wider font-semibold leading-tight"
+                  style={{ color: rm.color }}>
+                  {rm.icon}{rm.label}
+                </span>
+              )
+            })()}
           </div>
           <button
-            onClick={() => {
-              if (editMode) { setShowLogoutGuard(true); return }
-              logout()
-            }}
+            onClick={() => setShowLogoutGuard(true)}
             title="Sign out"
             className={cn(
               'w-8 h-8 rounded-lg flex items-center justify-center transition-colors border',
@@ -285,12 +298,17 @@ export function Topbar() {
 
       <EditGuardDialog
         open={showLogoutGuard}
-        message="Logging out will discard any unsaved layout changes. Finish editing first, or discard to sign out."
-        confirmLabel="Discard & Sign Out"
+        message={
+          editMode
+            ? 'Logging out will discard any unsaved layout changes. Finish editing first, or discard to sign out.'
+            : 'Are you sure you want to sign out?'
+        }
+        confirmLabel={editMode ? 'Discard & Sign Out' : 'Sign Out'}
         onCancel={() => setShowLogoutGuard(false)}
         onConfirm={() => {
           setEditMode(false)
           setShowLogoutGuard(false)
+          toast.warning('You have been signed out.')
           logout()
         }}
       />

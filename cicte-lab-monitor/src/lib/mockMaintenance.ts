@@ -1,4 +1,5 @@
 import type { RepairTicket, MaintenanceEvent, SparePart, ActivityEvent } from '@/types'
+import { LABS, LAB_PC_COUNTS } from '@/lib/data'
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -21,13 +22,9 @@ const randFutureDate = (daysAhead = 30) => {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-// ─── Lab / PC references ────────────────────────────────────────────────────
+// ─── Lab / PC references (shared from data.ts) ──────────────────────────────
 
-const LAB_IDS = ['cl1', 'cl2', 'cl3', 'cl4', 'cl5', 'nl1', 'sl1', 'sl2', 'emc']
-const LAB_PC_COUNTS: Record<string, number> = {
-  cl1: 31, cl2: 31, cl3: 31, cl4: 22, cl5: 22,
-  nl1: 24, sl1: 30, sl2: 30, emc: 24,
-}
+const LAB_IDS = LABS.map(l => l.id)
 
 function randPC(labId: string) {
   const count = LAB_PC_COUNTS[labId] ?? 20

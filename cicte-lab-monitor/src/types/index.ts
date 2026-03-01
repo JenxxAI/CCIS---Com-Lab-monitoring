@@ -42,6 +42,9 @@ export interface PC {
   specs:                 PCSpecs
   repairs:               RepairLog[]
   installedApps:         string[]    // ids from APP_CATALOG
+  lastSeen?:             string      // ISO timestamp — last heartbeat
+  isOnline?:             boolean     // derived from heartbeat freshness
+  signalStrength?:       number      // 0-100 connection quality
 }
 
 export interface Lab {
@@ -214,4 +217,59 @@ export interface ActivityEvent {
   timestamp:   string   // ISO timestamp
   performedBy: string
   metadata?:   Record<string, string>
+}
+
+// ─── Class Schedule & Faculty Attendance ─────────────────────────────────────
+
+export type DayIndex       = 0 | 1 | 2 | 3 | 4 | 5   // 0=Mon … 5=Sat
+export type AttendanceStatus = 'present' | 'late' | 'absent'
+
+export const DAY_LABELS: Record<DayIndex, string> = {
+  0: 'Monday', 1: 'Tuesday', 2: 'Wednesday',
+  3: 'Thursday', 4: 'Friday', 5: 'Saturday',
+}
+
+export interface ClassScheduleEntry {
+  id:             string
+  labId:          string
+  day:            DayIndex
+  startTime:      string    // "07:45"
+  endTime:        string    // "09:15"
+  courseCode:     string
+  subject:        string
+  section:        string
+  instructorId:   string
+  instructorName: string
+}
+
+export interface FacultyAttendance {
+  id:           string
+  classId:      string
+  date:         string    // YYYY-MM-DD
+  status:       AttendanceStatus
+  markedAt:     string    // ISO
+  markedBy:     string
+  notes?:       string
+  timeArrived?: string    // "HH:mm" if late/present manually set
+}
+
+// ─── Alert Rules ─────────────────────────────────────────────────────────────
+
+export type AlertCondition =
+  | 'pc-offline'           // PC offline for > threshold minutes
+  | 'status-maintenance'   // PC enters maintenance status
+  | 'condition-damaged'    // PC condition becomes damaged
+  | 'condition-needs-repair' // PC condition becomes needs_repair
+  | 'low-stock'            // Spare part quantity below minStock
+  | 'ticket-unresolved'    // Ticket open for > threshold minutes
+
+export interface AlertRule {
+  id:           string
+  name:         string
+  condition:    AlertCondition
+  thresholdMin: number       // threshold in minutes (for time-based conditions)
+  labId?:       string       // scope to specific lab, or all labs if undefined
+  enabled:      boolean
+  createdAt:    string
+  lastTriggered?: string
 }

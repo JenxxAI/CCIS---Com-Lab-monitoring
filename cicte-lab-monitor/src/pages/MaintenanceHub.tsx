@@ -4,7 +4,7 @@ import {
   AlertTriangle, X, Wrench,
   Trash2, RefreshCcw, Check,
 } from 'lucide-react'
-import { useThemeStore, useAuthStore } from '@/store'
+import { useThemeStore, useAuthStore, useNotifStore } from '@/store'
 import { useTicketStore, PRIORITY_META, TICKET_STATUS_META } from '@/store/tickets'
 import { useScheduleStore, MAINT_TYPE_META, MAINT_STATUS_META, createMaintenanceEvent } from '@/store/schedule'
 import { useInventoryStore, PART_CATEGORY_META, createSparePart } from '@/store/inventory'
@@ -65,7 +65,17 @@ export function MaintenanceHub() {
       useScheduleStore.getState().setEvents(generateMockMaintenanceEvents())
     }
     if (parts.length === 0) {
-      useInventoryStore.getState().setParts(generateMockParts())
+      const freshParts = generateMockParts()
+      useInventoryStore.getState().setParts(freshParts)
+      // Fire low-stock alerts for any part at or below minimum
+      freshParts.forEach(p => {
+        if (p.quantity <= p.minStock) {
+          useNotifStore.getState().addNotif({
+            level: 'warning',
+            message: `Low stock: ${p.name} (${p.quantity} left, min ${p.minStock})`,
+          })
+        }
+      })
     }
     if (activities.length === 0) {
       useActivityStore.getState().setEvents(generateMockActivity())

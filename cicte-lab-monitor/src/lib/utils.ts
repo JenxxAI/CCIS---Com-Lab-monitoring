@@ -59,3 +59,15 @@ export const STATUS_BG_HEX: Record<PCStatus, string> = {
   occupied:    'rgba(245,158,11,0.11)',
   maintenance: 'rgba(244,63,94,0.11)',
 }
+
+// ─── CSV Export ───────────────────────────────────────────────────────────────
+
+export function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const csv = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}

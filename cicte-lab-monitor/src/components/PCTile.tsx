@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
 import type { PC } from '@/types'
+import { HeartbeatDot } from './HealthBar'
 
 interface PCTileProps {
   pc:         PC
@@ -51,6 +52,10 @@ export const PCTile = memo(function PCTile({ pc, isSelected, dimmed, onSelect, a
           boxShadow:  `0 0 4px ${condColor}80`,
         }}
       />
+      {/* Heartbeat online/offline dot */}
+      <span className="absolute top-1 right-1">
+        <HeartbeatDot isOnline={pc.isOnline !== false} size={7} />
+      </span>
     </button>
   )
 })
