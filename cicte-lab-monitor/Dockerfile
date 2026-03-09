@@ -13,7 +13,11 @@ RUN npm run build
 FROM node:20-alpine AS production
 WORKDIR /app
 
-# Copy server files
+# Install only production dependencies (includes @supabase/supabase-js)
+COPY package.json package-lock.json* ./
+RUN npm ci --legacy-peer-deps --omit=dev
+
+# Copy server and built frontend
 COPY server/ ./server/
 COPY --from=build /app/dist ./dist
 

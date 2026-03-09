@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { PC, Lab, RepairLog } from '@/types'
 import { useAuthStore } from '@/store'
-import type { AuthUser } from '@/store'
+import type { AuthUser, UserRole } from '@/store'
 import { env } from '@/lib/env'
 
 const BASE = env.apiUrl
@@ -14,8 +14,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${BASE}${path}`, { headers, ...init })
-  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`)
+  if (!res.ok) {
+    let msg = `API ${res.status}: ${res.statusText}`
+    try { const body = await res.json(); if (body?.error) msg = body.error } catch { /* ignore */ }
+    throw new Error(msg)
+  }
   return res.json() as Promise<T>
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface AppUser {
+  id:         string
+  username:   string
+  role:       UserRole
+  name:       string
+  created_at: string
 }
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -25,6 +39,7 @@ export const qk = {
   labPCs:  (id: string) => ['labs', id, 'pcs'] as const,
   allPCs:  ['all-pcs']        as const,
   pc:      (id: string) => ['pcs', id]          as const,
+  users:   ['users']          as const,
 }
 
 // ─── Hooks ───────────────────────────────────────────────────────────────────
@@ -65,6 +80,31 @@ export function useUpdatePC() {
   })
 }
 
+/** Add a new PC to a lab (admin/staff only) */
+export function useAddPC() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { labId: string; num: number; [key: string]: unknown }) =>
+      apiFetch<PC>('/api/pcs', { method: 'POST', body: JSON.stringify(payload) }),
+    onSuccess: (newPC) => {
+      qc.setQueryData<PC[]>(qk.labPCs(newPC.labId), old => [...(old ?? []), newPC])
+      qc.invalidateQueries({ queryKey: qk.labPCs(newPC.labId) })
+    },
+  })
+}
+
+/** Delete a PC (admin/staff only) */
+export function useDeletePC() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id }: { id: string; labId: string }) =>
+      apiFetch<{ ok: boolean }>(`/api/pcs/${id}`, { method: 'DELETE' }),
+    onSuccess: (_, { id, labId }) => {
+      qc.setQueryData<PC[]>(qk.labPCs(labId), old => old?.filter(p => p.id !== id) ?? [])
+    },
+  })
+}
+
 /** Log a repair for a PC */
 export function useLogRepair() {
   const qc = useQueryClient()
@@ -95,5 +135,46 @@ export function useLogin() {
     onSuccess: ({ token, user }) => {
       useAuthStore.getState().login(token, user)
     },
+  })
+}
+
+// ─── User Management Hooks (admin/staff only) ─────────────────────────────────
+
+/** Fetch all users */
+export function useUsers() {
+  return useQuery({
+    queryKey: qk.users,
+    queryFn:  () => apiFetch<AppUser[]>('/api/users'),
+    staleTime: 60_000,
+  })
+}
+
+/** Create a new user */
+export function useCreateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { username: string; password: string; role: UserRole; name: string }) =>
+      apiFetch<AppUser>('/api/users', { method: 'POST', body: JSON.stringify(payload) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.users }),
+  })
+}
+
+/** Update an existing user */
+export function useUpdateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<{ username: string; password: string; role: UserRole; name: string }> & { id: string }) =>
+      apiFetch<AppUser>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.users }),
+  })
+}
+
+/** Delete a user */
+export function useDeleteUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ ok: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.users }),
   })
 }
