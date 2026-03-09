@@ -248,8 +248,13 @@ export function PCDetailPanel() {
         {selectedPC.specs.macAddress && (
           <KV label="MAC Address" value={selectedPC.specs.macAddress} mono />
         )}
-        <KV label="SSID" value={selectedPC.routerSSID} />
-        <KV label="Router Key" value={selectedPC.routerPassword} mono />
+        {/* Router credentials — admin/staff only */}
+        {isAdmin && selectedPC.routerSSID && (
+          <KV label="SSID" value={selectedPC.routerSSID} />
+        )}
+        {isAdmin && selectedPC.routerPassword && (
+          <KV label="Router Key" value={selectedPC.routerPassword} mono />
+        )}
 
         {/* Installed Software (legacy tags) */}
         <SectionHead title={`Software \u00b7 ${selectedPC.specs.software.length}`} icon={<Package size={11} />} />

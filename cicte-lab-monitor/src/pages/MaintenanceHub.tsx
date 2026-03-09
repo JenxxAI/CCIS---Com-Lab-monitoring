@@ -4,6 +4,7 @@ import {
   AlertTriangle, X, Wrench,
   Trash2, RefreshCcw, Check,
 } from 'lucide-react'
+import { Navigate } from 'react-router-dom'
 import { useThemeStore, useAuthStore, useNotifStore } from '@/store'
 import { useTicketStore, PRIORITY_META, TICKET_STATUS_META } from '@/store/tickets'
 import { useScheduleStore, MAINT_TYPE_META, MAINT_STATUS_META, createMaintenanceEvent } from '@/store/schedule'
@@ -50,7 +51,10 @@ const SUB_TABS: { id: SubTab; label: string; icon: typeof Ticket }[] = [
 
 export function MaintenanceHub() {
   const { dark } = useThemeStore()
+  const isStudent = useAuthStore(s => s.user?.role === 'student')
   const [activeTab, setActiveTab] = useState<SubTab>('tickets')
+
+  if (isStudent) return <Navigate to="/" replace />
   const tickets = useTicketStore(s => s.tickets)
   const scheduleEvents = useScheduleStore(s => s.events)
   const parts = useInventoryStore(s => s.parts)

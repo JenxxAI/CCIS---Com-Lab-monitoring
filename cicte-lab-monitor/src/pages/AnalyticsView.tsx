@@ -2,7 +2,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts'
-import { useLabStore, useThemeStore } from '@/store'
+import { Navigate } from 'react-router-dom'
+import { useLabStore, useThemeStore, useAuthStore } from '@/store'
 import { toast } from '@/store/toast'
 import { LABS } from '@/lib/data'
 import { COND_HEX, COND_META, downloadCSV } from '@/lib/utils'
@@ -37,7 +38,10 @@ function buildConditionTrend(allPCs: any[]) {
 
 export function AnalyticsView() {
   const { dark } = useThemeStore()
+  const isStudent = useAuthStore(s => s.user?.role === 'student')
   const { labData, setActiveLab } = useLabStore()
+
+  if (isStudent) return <Navigate to="/" replace />
 
   const allPCs = Object.values(labData).flat()
   const trendData = buildConditionTrend(allPCs)

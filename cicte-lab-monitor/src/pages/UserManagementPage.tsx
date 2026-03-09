@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { Users, Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useThemeStore, useAuthStore } from '@/store'
@@ -151,7 +152,10 @@ function UserFormDialog({
 
 export function UserManagementPage() {
   const { dark } = useThemeStore()
+  const canManageUsers = useAuthStore(s => s.canManageUsers)
   const currentUser = useAuthStore(s => s.user)
+
+  if (!canManageUsers) return <Navigate to="/" replace />
   const { data: users = [], isLoading } = useUsers()
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
