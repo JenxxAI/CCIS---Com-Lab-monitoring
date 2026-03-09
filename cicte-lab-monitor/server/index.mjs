@@ -526,7 +526,17 @@ async function handleRequest(req, res) {
     const { data: rows, error } = await supabase
       .from('pcs').select('*').eq('lab_id', labId).order('num')
     if (error) return json(res, 500, { error: 'Database error' })
-    return json(res, 200, rows.map(r => sanitizePC(rowToPC(r), caller.role)))
+    const now = Date.now()
+    return json(res, 200, rows.map(r => {
+      const pc    = sanitizePC(rowToPC(r), caller.role)
+      const agent = agentMap.get(`${labId}-${r.num}`)
+      // Annotate with real agent heartbeat data so the frontend shows true online/offline
+      if (agent) {
+        pc.isOnline  = agent.online && (now - agent.lastSeen.getTime()) < OFFLINE_TIMEOUT
+        pc.lastSeen  = agent.lastSeen.toISOString()
+      }
+      return pc
+    }))
   }
 
   const pcMatch = path.match(/^\/api\/pcs\/([^/]+)$/)
