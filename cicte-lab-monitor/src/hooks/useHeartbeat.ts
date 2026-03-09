@@ -23,7 +23,12 @@ export function useHeartbeatSimulation() {
     const nowMs = Date.now()
 
     pcs.forEach(pc => {
-      // ~65 % chance we "hear" from this PC each tick
+      // If this PC has a real agent (lastSeen set by the server poll), skip simulation
+      // so we don't overwrite the real isOnline value with random noise.
+      const hasRealAgent = pc.lastSeen && (Date.now() - new Date(pc.lastSeen).getTime()) < 120_000
+      if (hasRealAgent) return
+
+      // ~65 % chance we "hear" from this PC each tick (simulation only)
       const heard   = Math.random() < 0.65
       const lastSeen = heard ? now : pc.lastSeen
       const lastMs   = lastSeen ? new Date(lastSeen).getTime() : 0
