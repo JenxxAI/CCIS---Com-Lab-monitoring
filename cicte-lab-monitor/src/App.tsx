@@ -6,6 +6,7 @@ import { PCDetailPanel } from '@/components/PCDetailPanel'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ToastContainer } from '@/components/Toast'
 import { EditGuardDialog } from '@/components/EditGuardDialog'
+import { AddPCDialog } from '@/components/AddPCDialog'
 import { LoginPage } from '@/pages/LoginPage'
 import { useThemeStore, useLabStore, useAuthStore, useLayoutStore } from '@/store'
 import { useSocket } from '@/hooks/useSocket'
@@ -14,12 +15,14 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useMaintenanceReminders } from '@/hooks/useMaintenanceReminders'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { cn } from '@/lib/utils'
+import { Plus } from 'lucide-react'
 
 // Lazy-loaded views — each in its own chunk
-const MapView        = lazy(() => import('@/pages/MapView').then(m => ({ default: m.MapView })))
-const ListView       = lazy(() => import('@/pages/ListView').then(m => ({ default: m.ListView })))
-const AnalyticsView  = lazy(() => import('@/pages/AnalyticsView').then(m => ({ default: m.AnalyticsView })))
-const MaintenanceHub = lazy(() => import('@/pages/MaintenanceHub').then(m => ({ default: m.MaintenanceHub })))
+const MapView            = lazy(() => import('@/pages/MapView').then(m => ({ default: m.MapView })))
+const ListView           = lazy(() => import('@/pages/ListView').then(m => ({ default: m.ListView })))
+const AnalyticsView      = lazy(() => import('@/pages/AnalyticsView').then(m => ({ default: m.AnalyticsView })))
+const MaintenanceHub     = lazy(() => import('@/pages/MaintenanceHub').then(m => ({ default: m.MaintenanceHub })))
+const UserManagementPage = lazy(() => import('@/pages/UserManagementPage').then(m => ({ default: m.UserManagementPage })))
 
 // Skeleton shimmer primitive
 function Shimmer({ className }: { className?: string }) {
@@ -88,12 +91,17 @@ function SubNav() {
   const { dark } = useThemeStore()
   const { editMode, setEditMode } = useLayoutStore()
   const user = useAuthStore(s => s.user)
+  const canManageUsers = useAuthStore(s => s.canManageUsers)
+  const canManage = useAuthStore(s => s.canManage)
+  const isAdmin = useAuthStore(s => s.isAdmin)
+  const activeLab = useLabStore(s => s.activeLab)
   const isStudent = user?.role === 'student'
   const navigate = useNavigate()
   const location = useLocation()
   const accent = dark ? '#5b7fff' : '#3a5cf5'
 
   const [pendingTab, setPendingTab] = useState<string | null>(null)
+  const [showAddPC, setShowAddPC]   = useState(false)
 
   const handleTabClick = useCallback((e: React.MouseEvent, to: string) => {
     if (location.pathname === to) return
@@ -109,6 +117,9 @@ function SubNav() {
     ...(!isStudent ? [
       { to: '/analytics',   label: 'Analytics'   },
       { to: '/maintenance', label: 'Maintenance' },
+    ] : []),
+    ...(canManageUsers ? [
+      { to: '/users', label: 'Users' },
     ] : []),
   ]
 
@@ -135,6 +146,21 @@ function SubNav() {
             {tab.label}
           </NavLink>
         ))}
+
+        {/* Add PC button — admin/staff only, shown in Map and List views */}
+        {canManage && isAdmin && (location.pathname === '/' || location.pathname === '/list') && (
+          <button
+            onClick={() => setShowAddPC(true)}
+            className={cn(
+              'ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors flex-shrink-0',
+              dark ? 'text-slate-400 hover:text-accent hover:bg-accent/10' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
+            )}
+            title="Add a new PC to a lab"
+          >
+            <Plus size={12} />
+            Add PC
+          </button>
+        )}
       </div>
 
       <EditGuardDialog
@@ -148,6 +174,12 @@ function SubNav() {
           navigate(pendingTab)
           setPendingTab(null)
         }}
+      />
+
+      <AddPCDialog
+        open={showAddPC}
+        defaultLabId={activeLab}
+        onClose={() => setShowAddPC(false)}
       />
     </>
   )
@@ -228,6 +260,7 @@ export function AppShell() {
                     <Route path="/list" element={<ListView />} />
                     <Route path="/analytics" element={<AnalyticsView />} />
                     <Route path="/maintenance" element={<MaintenanceHub />} />
+                    <Route path="/users" element={<UserManagementPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

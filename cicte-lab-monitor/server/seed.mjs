@@ -1,27 +1,61 @@
 // ─── Database seeder ─────────────────────────────────────────────────────────
-// Generates the same mock data that data.ts uses, but writes it to db.json
-// so the JSON server can serve it persistently.
+// Seeds the Supabase database with initial lab, PC, and user data.
+// Run once: node server/seed.mjs   (env vars must be set in .env or shell)
 
-import { writeFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { createClient } from '@supabase/supabase-js'
+import { pbkdf2Sync, randomBytes } from 'node:crypto'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname  = dirname(__filename)
-const DB_PATH    = join(__dirname, 'db.json')
+const SUPABASE_URL         = process.env.SUPABASE_URL
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('[Seed] SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.')
+  process.exit(1)
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  auth: { persistSession: false },
+})
+
+function pcToRow(pc) {
+  return {
+    id:                       pc.id,
+    num:                      pc.num,
+    lab_id:                   pc.labId,
+    status:                   pc.status,
+    condition:                pc.condition,
+    password:                 pc.password,
+    last_password_change:     pc.lastPasswordChange,
+    last_password_changed_by: pc.lastPasswordChangedBy,
+    last_student:             pc.lastStudent,
+    last_used:                pc.lastUsed,
+    router_ssid:              pc.routerSSID,
+    router_password:          pc.routerPassword,
+    specs:                    pc.specs,
+    repairs:                  pc.repairs  ?? [],
+    installed_apps:           pc.installedApps ?? [],
+  }
+}
+
+// ─── Password hashing (must match server/index.mjs) ─────────────────────────
+
+function hashPassword(plaintext) {
+  const salt = randomBytes(16).toString('hex')
+  const hash = pbkdf2Sync(String(plaintext), salt, 100_000, 32, 'sha256').toString('hex')
+  return `${salt}:${hash}`
+}
 
 // ─── Data generators (mirror of src/lib/data.ts) ────────────────────────────
 
 const LABS = [
-  { id:'cl1', name:'Computer Lab 1', short:'CL 1',  hasFloorPlan:true  },
-  { id:'cl2', name:'Computer Lab 2', short:'CL 2',  hasFloorPlan:true  },
-  { id:'cl3', name:'Computer Lab 3', short:'CL 3',  hasFloorPlan:true  },
-  { id:'cl4', name:'Computer Lab 4', short:'CL 4',  hasFloorPlan:true  },
-  { id:'cl5', name:'Computer Lab 5', short:'CL 5',  hasFloorPlan:true  },
-  { id:'nl1', name:'NitLab 1',       short:'NIT 1', hasFloorPlan:false },
-  { id:'sl1', name:'Smart Lab 1',    short:'SML 1', hasFloorPlan:false },
-  { id:'sl2', name:'Smart Lab 2',    short:'SML 2', hasFloorPlan:false },
-  { id:'emc', name:'EMC Lab',        short:'EMC',   hasFloorPlan:false },
+  { id:'cl1', name:'Computer Lab 1', short:'CL 1',  has_floor_plan:true  },
+  { id:'cl2', name:'Computer Lab 2', short:'CL 2',  has_floor_plan:true  },
+  { id:'cl3', name:'Computer Lab 3', short:'CL 3',  has_floor_plan:true  },
+  { id:'cl4', name:'Computer Lab 4', short:'CL 4',  has_floor_plan:true  },
+  { id:'cl5', name:'Computer Lab 5', short:'CL 5',  has_floor_plan:true  },
+  { id:'nl1', name:'NitLab 1',       short:'NIT 1', has_floor_plan:false },
+  { id:'sl1', name:'Smart Lab 1',    short:'SML 1', has_floor_plan:false },
+  { id:'sl2', name:'Smart Lab 2',    short:'SML 2', has_floor_plan:false },
+  { id:'emc', name:'EMC Lab',        short:'EMC',   has_floor_plan:false },
 ]
 
 const LAB_PC_COUNTS = {
@@ -131,18 +165,63 @@ function makePC(labId, num) {
 
 // ─── Seed function ───────────────────────────────────────────────────────────
 
-export function seed() {
-  const pcs = []
+export async function seed() {
+  // Upsert labs
+  const { error: labErr } = await supabase
+    .from('labs').upsert(LABS, { onConflict: 'id' })
+  if (labErr) { console.error('[Seed] Labs error:', labErr.message); process.exit(1) }
+  console.log(`[Seed] Upserted ${LABS.length} labs`)
+
+  // Generate PCs
+  const rows = []
   for (const [labId, count] of Object.entries(LAB_PC_COUNTS)) {
     for (let i = 1; i <= count; i++) {
-      pcs.push(makePC(labId, i))
+      rows.push(pcToRow(makePC(labId, i)))
     }
   }
 
-  const db = { labs: LABS, pcs }
-  writeFileSync(DB_PATH, JSON.stringify(db, null, 2))
-  console.log(`[Seed] Created ${pcs.length} PCs across ${LABS.length} labs → ${DB_PATH}`)
+  // Upsert in batches of 50
+  for (let i = 0; i < rows.length; i += 50) {
+    const { error } = await supabase
+      .from('pcs').upsert(rows.slice(i, i + 50), { onConflict: 'id' })
+    if (error) { console.error('[Seed] PCs error:', error.message); process.exit(1) }
+  }
+
+  console.log(`[Seed] Upserted ${rows.length} PCs across ${LABS.length} labs`)
+
+  // ── Seed initial users ──────────────────────────────────────────────────────
+  // Only inserts if the username does not already exist. Safe to re-run.
+  const SEED_USERS = [
+    {
+      username: process.env.ADMIN_USER || 'admin',
+      password: process.env.ADMIN_PASS || 'Admin@CICTE2026!',
+      role:     'admin',
+      name:     'Admin Ramos',
+    },
+    {
+      username: process.env.VIEWER_USER || 'viewer',
+      password: process.env.VIEWER_PASS || 'Viewer@CICTE2026!',
+      role:     'staff',
+      name:     'Staff Dela Rosa',
+    },
+  ]
+
+  for (const u of SEED_USERS) {
+    const { data: existing } = await supabase
+      .from('users').select('id').eq('username', u.username).maybeSingle()
+    if (existing) {
+      console.log(`[Seed] User '${u.username}' already exists — skipping`)
+      continue
+    }
+    const { error: uErr } = await supabase.from('users').insert({
+      username:      u.username,
+      password_hash: hashPassword(u.password),
+      role:          u.role,
+      name:          u.name,
+    })
+    if (uErr) console.error(`[Seed] Error creating user '${u.username}':`, uErr.message)
+    else console.log(`[Seed] Created user '${u.username}' (${u.role})`)
+  }
 }
 
-// Run directly
 seed()

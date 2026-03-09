@@ -322,8 +322,16 @@ export function AnalyticsView() {
 
       {/* Condition Trend — last 6 months */}
       <div className={cn(card, 'mt-3 sm:mt-4')}>
-        <div className={cn('text-[13px] font-semibold mb-4', dark ? 'text-slate-200' : 'text-slate-800')}>
-          Condition Trend · Last 6 Months
+        <div className="flex items-center gap-2 mb-4">
+          <span className={cn('text-[13px] font-semibold', dark ? 'text-slate-200' : 'text-slate-800')}>
+            Condition Trend · Last 6 Months
+          </span>
+          <span className={cn(
+            'text-[10px] font-medium px-1.5 py-0.5 rounded border',
+            dark ? 'text-slate-400 border-slate-600 bg-slate-800' : 'text-slate-500 border-slate-300 bg-slate-100',
+          )}>
+            Estimated
+          </span>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={trendData}>

@@ -2,13 +2,13 @@ import { useEffect, useRef } from 'react'
 import { useThemeStore } from '@/store'
 import { useToastStore, type Toast as ToastType } from '@/store/toast'
 import { cn } from '@/lib/utils'
-import { CheckCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Info, X, XCircle } from 'lucide-react'
 
 const ICONS = {
   success: CheckCircle,
   warning: AlertTriangle,
   info:    Info,
-  error:   AlertTriangle,
+  error:   XCircle,
 } as const
 
 const COLORS: Record<ToastType['level'], { icon: string; bg: string; border: string }> = {

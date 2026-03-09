@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { PC, ViewTab, StatusFilter, ConditionFilter, Notification, Position, FurnitureItem, PCStatus, PCCondition } from '@/types'
 import { generateAllLabData } from '@/lib/data'
 
@@ -26,7 +26,12 @@ export const useThemeStore = create<ThemeStore>()(
 
 // ─── Auth Store (persisted) ───────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'volunteer' | 'student'
+// Roles (descending access):
+//   admin             → Dean / Program Head — total access + user management
+//   staff             → Faculty / Technician — same total access as admin
+//   student_volunteer → Manage PCs + monitor labs — no user management
+//   student           → View only
+export type UserRole = 'admin' | 'staff' | 'student_volunteer' | 'student'
 
 export interface AuthUser {
   id:       string
@@ -36,36 +41,43 @@ export interface AuthUser {
 }
 
 interface AuthStore {
-  token:      string | null
-  user:       AuthUser | null
-  isAdmin:    boolean
-  isVolunteer: boolean
-  canManage:  boolean   // admin or volunteer
+  token:          string | null
+  user:           AuthUser | null
+  /** admin or staff — full access including sensitive data & user management */
+  isAdmin:        boolean
+  /** student_volunteer */
+  isVolunteer:    boolean
+  /** admin, staff, or student_volunteer — can edit PC status/condition/repairs */
+  canManage:      boolean
+  /** admin or staff — can manage users */
+  canManageUsers: boolean
 
-  login:    (token: string, user: AuthUser) => void
-  logout:   () => void
+  login:  (token: string, user: AuthUser) => void
+  logout: () => void
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
-      token:      null,
-      user:       null,
-      isAdmin:    false,
-      isVolunteer: false,
-      canManage:  false,
+      token:          null,
+      user:           null,
+      isAdmin:        false,
+      isVolunteer:    false,
+      canManage:      false,
+      canManageUsers: false,
 
       login: (token, user) => set({
         token,
         user,
-        isAdmin:     user.role === 'admin',
-        isVolunteer: user.role === 'volunteer',
-        canManage:   user.role === 'admin' || user.role === 'volunteer',
+        isAdmin:        user.role === 'admin' || user.role === 'staff',
+        isVolunteer:    user.role === 'student_volunteer',
+        canManage:      user.role !== 'student',
+        canManageUsers: user.role === 'admin' || user.role === 'staff',
       }),
 
-      logout: () => set({ token: null, user: null, isAdmin: false, isVolunteer: false, canManage: false }),
+      logout: () => set({ token: null, user: null, isAdmin: false, isVolunteer: false, canManage: false, canManageUsers: false }),
     }),
-    { name: 'cicte-auth' }
+    { name: 'cicte-auth', storage: createJSONStorage(() => sessionStorage) }
   )
 )
 

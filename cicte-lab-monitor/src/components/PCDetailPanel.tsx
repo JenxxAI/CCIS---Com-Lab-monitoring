@@ -1,4 +1,4 @@
-import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown, Plus, Check, Ticket, Activity } from 'lucide-react'
+import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown, Plus, Check, Ticket, Activity, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from './Badge'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
@@ -13,6 +13,7 @@ import { CreateTicketDialog } from './CreateTicketDialog'
 import { ActivityTimeline } from './ActivityTimeline'
 import { useTicketStore, PRIORITY_META, TICKET_STATUS_META } from '@/store/tickets'
 import { logActivity } from '@/store/activity'
+import { useDeletePC } from '@/hooks/useApi'
 import type { PCStatus, PCCondition } from '@/types'
 
 function KV({ label, value, mono = false }: {
@@ -65,7 +66,9 @@ export function PCDetailPanel() {
   const [newPass, setNewPass] = useState('')
   const [showAppPicker, setShowAppPicker] = useState(false)
   const [showTicketDialog, setShowTicketDialog] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
+  const deletePC = useDeletePC()
   const tickets = useTicketStore(s => s.tickets)
   const pcTickets = tickets.filter(t => t.pcId === selectedPC?.id)
 
@@ -598,6 +601,56 @@ export function PCDetailPanel() {
           pcNum={selectedPC.num}
           onClose={() => setShowTicketDialog(false)}
         />
+      )}
+
+      {/* Delete PC — admin/staff only */}
+      {isAdmin && (
+        <div className={cn('px-4 sm:px-5 pb-5 pt-1 border-t', dark ? 'border-dark-border' : 'border-slate-100')}>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className={cn(
+                'w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed text-[11px] font-medium transition-colors',
+                dark
+                  ? 'border-rose-500/30 text-rose-500/60 hover:border-rose-500/60 hover:text-rose-400'
+                  : 'border-rose-300 text-rose-400 hover:border-rose-400 hover:text-rose-600'
+              )}
+            >
+              <Trash2 size={12} />
+              Delete PC
+            </button>
+          ) : (
+            <div className={cn('p-3 rounded-xl border', dark ? 'bg-rose-500/10 border-rose-500/30' : 'bg-rose-50 border-rose-200')}>
+              <p className={cn('text-[11px] mb-2 font-medium', dark ? 'text-rose-300' : 'text-rose-700')}>
+                Delete PC-{String(selectedPC.num).padStart(2, '0')}? This cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className={cn('flex-1 px-3 py-1.5 rounded-lg border text-[11px] transition-colors',
+                    dark ? 'border-dark-border text-slate-400 hover:bg-dark-surfaceAlt' : 'border-slate-200 text-slate-500 hover:bg-white')}
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={deletePC.isPending}
+                  onClick={async () => {
+                    try {
+                      await deletePC.mutateAsync({ id: selectedPC.id, labId: selectedPC.labId })
+                      toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} deleted`)
+                      setSelectedPC(null)
+                    } catch (err: unknown) {
+                      toast.error(err instanceof Error ? err.message : 'Failed to delete PC')
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-medium transition-colors disabled:opacity-50"
+                >
+                  {deletePC.isPending ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </aside>
   )

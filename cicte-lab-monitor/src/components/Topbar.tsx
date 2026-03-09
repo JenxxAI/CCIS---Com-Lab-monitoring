@@ -7,9 +7,10 @@ import { toast } from '@/store/toast'
 import { EditGuardDialog } from './EditGuardDialog'
 
 const ROLE_META: Record<UserRole, { label: string; color: string; icon: React.ReactNode }> = {
-  admin:     { label: 'Admin',     color: '#5b7fff', icon: <ShieldCheck size={10} /> },
-  volunteer: { label: 'Volunteer', color: '#a78bfa', icon: <UserCog size={10} /> },
-  student:   { label: 'Student',   color: '#94a3b8', icon: <GraduationCap size={10} /> },
+  admin:             { label: 'Admin',     color: '#5b7fff', icon: <ShieldCheck size={10} /> },
+  staff:             { label: 'Staff',     color: '#8b5cf6', icon: <UserCog size={10} /> },
+  student_volunteer: { label: 'Volunteer', color: '#a78bfa', icon: <UserCog size={10} /> },
+  student:           { label: 'Student',   color: '#94a3b8', icon: <GraduationCap size={10} /> },
 }
 import { AlertRulesManager } from './AlertRulesManager'
 import { HealthBar } from './HealthBar'

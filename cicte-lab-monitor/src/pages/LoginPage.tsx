@@ -139,24 +139,7 @@ export function LoginPage() {
       const { token, user } = await res.json()
       doLogin(token, user)
     } catch (err: unknown) {
-      if (username === 'admin' && password === 'admin123') {
-        doLogin(
-          btoa(JSON.stringify({ id: 'admin-1', username: 'admin', role: 'admin', name: 'Admin Ramos' })),
-          { id: 'admin-1', username: 'admin', role: 'admin', name: 'Admin Ramos' },
-        )
-      } else if (username === 'volunteer' && password === 'volunteer123') {
-        doLogin(
-          btoa(JSON.stringify({ id: 'vol-1', username: 'volunteer', role: 'volunteer', name: 'Vol. Santos' })),
-          { id: 'vol-1', username: 'volunteer', role: 'volunteer', name: 'Vol. Santos' },
-        )
-      } else if (username === 'student' && password === 'student123') {
-        doLogin(
-          btoa(JSON.stringify({ id: 'stu-1', username: 'student', role: 'student', name: 'Juan Dela Cruz' })),
-          { id: 'stu-1', username: 'student', role: 'student', name: 'Juan Dela Cruz' },
-        )
-      } else {
-        fail(err instanceof Error ? err.message : 'Invalid credentials')
-      }
+      fail(err instanceof Error ? err.message : 'Invalid credentials')
     } finally {
       setLoading(false)
     }
@@ -344,33 +327,6 @@ export function LoginPage() {
             </p>
           </div>
         </form>
-
-        {/* Demo credential chips */}
-        <div className="mt-3 flex items-center gap-2 justify-center">
-          <span className={cn('text-[10px]', dark ? 'text-slate-700' : 'text-slate-400')}>Quick fill:</span>
-          {[
-            { label: 'Admin',     user: 'admin',     pass: 'admin123',     color: '#5b7fff' },
-            { label: 'Volunteer', user: 'volunteer', pass: 'volunteer123', color: '#a78bfa' },
-            { label: 'Student',   user: 'student',   pass: 'student123',   color: '#94a3b8' },
-          ].map(d => (
-            <button
-              key={d.label}
-              type="button"
-              onClick={() => { setUsername(d.user); setPassword(d.pass) }}
-              className={cn(
-                'px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors',
-                dark
-                  ? 'border-[#232b3e] text-slate-500 hover:text-white'
-                  : 'border-slate-200 text-slate-400 hover:text-white'
-              )}
-              style={{ ['--hover-color' as string]: d.color }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = d.color; (e.currentTarget as HTMLButtonElement).style.color = d.color }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ''; (e.currentTarget as HTMLButtonElement).style.color = '' }}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
 
         {/* Version */}
         <p className={cn('text-center text-[10px] mt-4', dark ? 'text-slate-700' : 'text-slate-400')}>
