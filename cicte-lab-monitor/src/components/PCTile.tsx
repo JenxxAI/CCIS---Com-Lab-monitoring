@@ -5,14 +5,15 @@ import type { PC } from '@/types'
 import { HeartbeatDot } from './HealthBar'
 
 interface PCTileProps {
-  pc:         PC
-  isSelected: boolean
-  dimmed:     boolean
-  onSelect:   (pc: PC) => void
-  accent:     string   // theme accent hex
+  pc:             PC
+  isSelected:     boolean
+  dimmed:         boolean
+  onSelect:       (pc: PC) => void
+  accent:         string   // theme accent hex
+  hasOpenTicket?: boolean
 }
 
-export const PCTile = memo(function PCTile({ pc, isSelected, dimmed, onSelect, accent }: PCTileProps) {
+export const PCTile = memo(function PCTile({ pc, isSelected, dimmed, onSelect, accent, hasOpenTicket }: PCTileProps) {
   const statusColor = STATUS_HEX[pc.status]
   const statusBg    = STATUS_BG_HEX[pc.status]
   const condColor   = COND_HEX[pc.condition]
@@ -28,7 +29,7 @@ export const PCTile = memo(function PCTile({ pc, isSelected, dimmed, onSelect, a
       )}
       style={{
         width:      44,
-        height:     38,
+        height:     44,
         background: dimmed ? 'transparent' : statusBg,
         border:     `1.5px solid ${isSelected ? accent : dimmed ? 'transparent' : statusColor + '55'}`,
         boxShadow:  isSelected
@@ -52,15 +53,22 @@ export const PCTile = memo(function PCTile({ pc, isSelected, dimmed, onSelect, a
           boxShadow:  `0 0 4px ${condColor}80`,
         }}
       />
-      {/* Heartbeat online/offline dot */}
       <span className="absolute top-1 right-1">
         <HeartbeatDot isOnline={pc.isOnline !== false} size={7} />
       </span>
+      {/* Open repair ticket indicator */}
+      {hasOpenTicket && !dimmed && (
+        <span
+          className="absolute top-1 left-1 rounded-full animate-pulse"
+          style={{ width: 6, height: 6, background: '#f97316', boxShadow: '0 0 4px #f9731680' }}
+          title="Has open repair ticket"
+        />
+      )}
     </button>
   )
 })
 
 // Empty placeholder tile (for alignment)
 export function PCTilePlaceholder() {
-  return <div style={{ width: 44, height: 38, flexShrink: 0 }} />
+  return <div style={{ width: 44, height: 44, flexShrink: 0 }} />
 }

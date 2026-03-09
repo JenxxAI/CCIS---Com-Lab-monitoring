@@ -134,16 +134,36 @@ export function Sidebar() {
         dark ? 'border-dark-border' : 'border-slate-100'
       )}>
         <div className={cn(
-          'text-[10px] font-semibold tracking-widest uppercase mb-2.5',
+          'text-[10px] font-semibold tracking-widest uppercase mb-2',
           dark ? 'text-slate-600' : 'text-slate-400'
         )}>
-          Legend
+          Status
+        </div>
+        <div className="grid grid-cols-2 gap-1 mb-3">
+          {[
+            { label: 'Available',   color: '#22c55e' },
+            { label: 'Occupied',    color: '#f59e0b' },
+            { label: 'Maintenance', color: '#f43f5e' },
+          ].map(item => (
+            <div key={item.label} className="flex items-center gap-1.5">
+              <div
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ background: item.color }}
+              />
+              <span className={cn('text-[10px]', dark ? 'text-slate-500' : 'text-slate-500')}>
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className={cn(
+          'text-[10px] font-semibold tracking-widest uppercase mb-2',
+          dark ? 'text-slate-600' : 'text-slate-400'
+        )}>
+          Condition
         </div>
         <div className="grid grid-cols-2 gap-1">
           {[
-            { label: 'Available',    color: '#22c55e' },
-            { label: 'Occupied',     color: '#f59e0b' },
-            { label: 'Maintenance',  color: '#f43f5e' },
             { label: 'Good',         color: '#22c55e' },
             { label: 'Lagging',      color: '#f59e0b' },
             { label: 'Needs Repair', color: '#f97316' },

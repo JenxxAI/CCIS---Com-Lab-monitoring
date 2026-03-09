@@ -5,9 +5,9 @@ import type { Position, FurnitureType } from '@/types'
 export const GRID_FINE   = 10
 export const GRID_COARSE = 20
 export const PC_GRID_W   = 52   // PC snap grid = tile width (44 + 8 gap)
-export const PC_GRID_H   = 46   // PC snap grid = tile height (38 + 8 gap)
+export const PC_GRID_H   = 52   // PC snap grid = tile height (44 + 8 gap)
 export const TILE_W      = 52
-export const TILE_H      = 46
+export const TILE_H      = 52
 export const CANVAS_W    = 820
 export const CANVAS_H    = 520
 export const PAD         = 30

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { PCTile } from './PCTile'
 import { useThemeStore, useLayoutStore } from '@/store'
+import { useTicketStore } from '@/store/tickets'
 import { toast } from '@/store/toast'
 import { GENERIC_GRIDS } from '@/lib/data'
 import type { PC, PCStatus, Position, FurnitureItem } from '@/types'
@@ -77,6 +78,13 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
 
   const accent     = dark ? '#5b7fff' : '#3a5cf5'
   const guideColor = '#f59e0b'
+
+  // Set of PC IDs that have at least one open/in-progress ticket
+  const tickets = useTicketStore(s => s.tickets)
+  const openTicketPcIds = useMemo(() =>
+    new Set(tickets.filter(t => t.status === 'open' || t.status === 'in-progress').map(t => t.pcId)),
+    [tickets]
+  )
 
   // Keep refs in sync every render
   dragRef.current  = drag
@@ -718,6 +726,7 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
               dimmed={isDimmed}
               onSelect={editMode ? () => {} : onSelect}
               accent={accent}
+              hasOpenTicket={openTicketPcIds.has(pc.id)}
             />
           </div>
         )
