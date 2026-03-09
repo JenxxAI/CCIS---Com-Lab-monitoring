@@ -396,7 +396,9 @@ async function processHeartbeat(hb) {
       rowUpdates.last_used = new Date().toISOString().replace('T', ' ').slice(0, 16)
       pc.lastStudent = hb.loggedInUser
     }
-    if (pc.status !== 'maintenance' && pc.status !== 'occupied') {
+    // A live real-user heartbeat always brings the PC to occupied —
+    // this also clears an auto-set maintenance from the offline checker.
+    if (pc.status !== 'occupied') {
       rowUpdates.status = 'occupied'
       pc.status = 'occupied'
     }

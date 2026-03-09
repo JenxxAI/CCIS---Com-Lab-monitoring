@@ -67,6 +67,8 @@ export function useHeartbeatSimulation() {
   const tickRef = useRef(tick)
   useEffect(() => { tickRef.current = tick }, [tick])
 
+  const loadLabData = useLabStore(s => s.loadLabData)
+
   useEffect(() => {
     // Seed initial lastSeen on mount
     const pcs = labData[activeLab] ?? []
@@ -78,7 +80,12 @@ export function useHeartbeatSimulation() {
     })
 
     const id = setInterval(() => tickRef.current(), HEARTBEAT_INTERVAL)
-    return () => clearInterval(id)
+
+    // Poll the server every 15 s to pick up real agent status changes and
+    // any new PCs auto-created by heartbeats (e.g. a new agent laptop).
+    const pollId = setInterval(() => loadLabData(activeLab), 15_000)
+
+    return () => { clearInterval(id); clearInterval(pollId) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLab])
 
