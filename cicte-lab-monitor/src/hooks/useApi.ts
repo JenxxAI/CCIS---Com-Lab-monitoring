@@ -14,6 +14,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${BASE}${path}`, { headers, ...init })
+
+  if (res.status === 401) {
+    useAuthStore.getState().logout()
+    throw new Error('Session expired. Please sign in again.')
+  }
+
   if (!res.ok) {
     let msg = `API ${res.status}: ${res.statusText}`
     try { const body = await res.json(); if (body?.error) msg = body.error } catch { /* ignore */ }

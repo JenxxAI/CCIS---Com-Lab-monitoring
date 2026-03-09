@@ -63,6 +63,10 @@ export function useHeartbeatSimulation() {
     })
   }, [labData, activeLab, updatePC, addNotif, alertRules])
 
+  // Keep a ref to the latest tick so the interval always calls the fresh closure
+  const tickRef = useRef(tick)
+  useEffect(() => { tickRef.current = tick }, [tick])
+
   useEffect(() => {
     // Seed initial lastSeen on mount
     const pcs = labData[activeLab] ?? []
@@ -73,7 +77,7 @@ export function useHeartbeatSimulation() {
       }
     })
 
-    const id = setInterval(tick, HEARTBEAT_INTERVAL)
+    const id = setInterval(() => tickRef.current(), HEARTBEAT_INTERVAL)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLab])
