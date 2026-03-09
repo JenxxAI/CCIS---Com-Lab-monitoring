@@ -100,15 +100,25 @@ function json(res, status, body) {
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Vary': 'Origin',
+    'X-Content-Type-Options': 'nosniff',
   })
   res.end(JSON.stringify(body))
 }
 
-function parseBody(req) {
+function parseBody(req, res) {
   return new Promise((resolve) => {
     let data = ''
-    req.on('data', c => data += c)
+    let size = 0
+    req.on('data', c => {
+      size += c.length
+      if (size <= 65_536) data += c
+    })
     req.on('end', () => {
+      if (size > 65_536) {
+        json(res, 413, { error: 'Request body too large' })
+        resolve(null)
+        return
+      }
       try { resolve(JSON.parse(data)) }
       catch { resolve({}) }
     })
@@ -119,7 +129,7 @@ function parseBody(req) {
 // NOTE: This uses HMAC-SHA256-signed tokens. Set TOKEN_SECRET in your env.
 // Do NOT use the default secret in production.
 
-import { createHmac, pbkdf2Sync, timingSafeEqual, randomBytes } from 'node:crypto'
+import { createHmac, pbkdf2, timingSafeEqual, randomBytes } from 'node:crypto'
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET
 if (!TOKEN_SECRET) {
@@ -133,27 +143,37 @@ const _SECRET = TOKEN_SECRET || 'cicte-dev-secret-change-me'
 
 /**
  * Hash a password for storage using PBKDF2 with a random per-user salt.
- * Returns "salt_hex:hash_hex".
+ * Returns "salt_hex:hash_hex". Async to avoid blocking the event loop.
  */
 function hashPassword(plaintext) {
-  const salt = randomBytes(16).toString('hex')
-  const hash = pbkdf2Sync(String(plaintext), salt, 100_000, 32, 'sha256').toString('hex')
-  return `${salt}:${hash}`
+  return new Promise((resolve, reject) => {
+    const salt = randomBytes(16).toString('hex')
+    pbkdf2(String(plaintext), salt, 100_000, 32, 'sha256', (err, hash) => {
+      if (err) reject(err)
+      else resolve(`${salt}:${hash.toString('hex')}`)
+    })
+  })
 }
 
 /**
  * Constant-time password check against a stored "salt:hash" value.
- * Prevents timing-based enumeration attacks.
+ * Async to avoid blocking the event loop during PBKDF2 derivation.
  */
 function checkPassword(input, storedHash) {
-  const sep = storedHash.indexOf(':')
-  if (sep === -1) return false
-  const salt = storedHash.slice(0, sep)
-  const hash = storedHash.slice(sep + 1)
-  const derived  = pbkdf2Sync(String(input), salt, 100_000, 32, 'sha256')
-  const expected = Buffer.from(hash, 'hex')
-  if (derived.length !== expected.length) return false
-  return timingSafeEqual(derived, expected)
+  return new Promise((resolve, reject) => {
+    const sep = storedHash.indexOf(':')
+    if (sep === -1) { resolve(false); return }
+    const salt = storedHash.slice(0, sep)
+    const hash = storedHash.slice(sep + 1)
+    pbkdf2(String(input), salt, 100_000, 32, 'sha256', (err, derived) => {
+      if (err) reject(err)
+      else {
+        const expected = Buffer.from(hash, 'hex')
+        if (derived.length !== expected.length) { resolve(false); return }
+        resolve(timingSafeEqual(derived, expected))
+      }
+    })
+  })
 }
 
 /** Look up a user record from Supabase by username. */
@@ -396,12 +416,18 @@ async function processHeartbeat(hb) {
 }
 
 /** Periodically check for offline PCs (no heartbeat in OFFLINE_TIMEOUT) */
+const STALE_AGENT_THRESHOLD = 24 * 60 * 60_000  // 24 h — prune from agentMap after this long without a heartbeat
+
 async function checkOfflinePCs() {
   const now = Date.now()
   const offlineIds = []
 
   for (const [key, agent] of agentMap.entries()) {
     const elapsed = now - agent.lastSeen.getTime()
+    if (elapsed > STALE_AGENT_THRESHOLD) {
+      agentMap.delete(key)  // permanently decommissioned agent — free memory
+      continue
+    }
     if (elapsed > OFFLINE_TIMEOUT && agent.online) {
       agent.online = false
       agentMap.set(key, agent)
@@ -450,9 +476,12 @@ async function handleRequest(req, res) {
   if (path === '/api/auth/login' && method === 'POST') {
     const ip = req.socket.remoteAddress ?? 'unknown'
     if (!checkLoginRateLimit(ip)) return json(res, 429, { error: 'Too many requests. Try again later.' })
-    const body = await parseBody(req)
+    const body = await parseBody(req, res)
+    if (body === null) return
+    const password = typeof body.password === 'string' ? body.password : ''
+    if (password.length > 128) return json(res, 401, { error: 'Invalid credentials' })
     const user = await findUserByUsername(body.username)
-    if (!user || !checkPassword(body.password ?? '', user.passwordHash))
+    if (!user || !await checkPassword(password, user.passwordHash))
       return json(res, 401, { error: 'Invalid credentials' })
     return json(res, 200, {
       token: makeToken(user),
@@ -511,7 +540,8 @@ async function handleRequest(req, res) {
   if (pcMatch && method === 'PATCH') {
     const caller = requireCanManagePC(req, res)
     if (!caller) return
-    const body = await parseBody(req)
+    const body = await parseBody(req, res)
+    if (body === null) return
     const isFullAccess = caller.role === 'admin' || caller.role === 'staff'
     // student_volunteer cannot change credential or hardware-spec fields
     const VOLUNTEER_BLOCKED = new Set(['password','lastPasswordChange','lastPasswordChangedBy','routerSSID','routerPassword','specs'])
@@ -540,7 +570,8 @@ async function handleRequest(req, res) {
   if (path === '/api/pcs' && method === 'POST') {
     const caller = requireAdminOrStaff(req, res)
     if (!caller) return
-    const body = await parseBody(req)
+    const body = await parseBody(req, res)
+    if (body === null) return
     if (!body.labId || typeof body.num !== 'number')
       return json(res, 400, { error: 'labId and num are required' })
     const { data: lab } = await supabase.from('labs').select('id').eq('id', body.labId).maybeSingle()
@@ -573,7 +604,8 @@ async function handleRequest(req, res) {
   if (repairMatch && method === 'POST') {
     const caller = requireCanManagePC(req, res)
     if (!caller) return
-    const body = await parseBody(req)
+    const body = await parseBody(req, res)
+    if (body === null) return
     const { data: row } = await supabase
       .from('pcs').select('repairs, lab_id').eq('id', repairMatch[1]).maybeSingle()
     if (!row) return json(res, 404, { error: 'PC not found' })
@@ -595,9 +627,13 @@ async function handleRequest(req, res) {
   // ── Agent routes ──
 
   if (path === '/api/agent/heartbeat' && method === 'POST') {
-    const key = req.headers['x-agent-key']
-    if (key !== _AGENT_KEY) return json(res, 403, { error: 'Invalid agent key' })
-    const body = await parseBody(req)
+    const rawKey = typeof req.headers['x-agent-key'] === 'string' ? req.headers['x-agent-key'] : ''
+    const _expectedKey = Buffer.from(_AGENT_KEY)
+    const _providedKey = Buffer.from(rawKey)
+    if (_providedKey.length !== _expectedKey.length || !timingSafeEqual(_providedKey, _expectedKey))
+      return json(res, 403, { error: 'Invalid agent key' })
+    const body = await parseBody(req, res)
+    if (body === null) return
     const hbError = validateHeartbeat(body)
     if (hbError) return json(res, 400, { error: hbError })
     const result = await processHeartbeat(body)
@@ -618,7 +654,8 @@ async function handleRequest(req, res) {
   if (path === '/api/users' && method === 'POST') {
     const caller = requireAdminOrStaff(req, res)
     if (!caller) return
-    const body = await parseBody(req)
+    const body = await parseBody(req, res)
+    if (body === null) return
     if (!body.username || !body.password || !body.role)
       return json(res, 400, { error: 'username, password, and role are required' })
     const VALID_ROLES = ['admin', 'staff', 'student_volunteer', 'student']
@@ -626,13 +663,13 @@ async function handleRequest(req, res) {
       return json(res, 400, { error: 'Invalid role' })
     if (typeof body.username !== 'string' || body.username.length < 3 || body.username.length > 50)
       return json(res, 400, { error: 'Username must be 3–50 characters' })
-    if (typeof body.password !== 'string' || body.password.length < 8)
-      return json(res, 400, { error: 'Password must be at least 8 characters' })
+    if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 128)
+      return json(res, 400, { error: 'Password must be 8–128 characters' })
     const { data: dup } = await supabase.from('users').select('id').eq('username', body.username.trim()).maybeSingle()
     if (dup) return json(res, 409, { error: 'Username already taken' })
     const { data: inserted, error } = await supabase.from('users').insert({
       username:      body.username.trim(),
-      password_hash: hashPassword(body.password),
+      password_hash: await hashPassword(body.password),
       role:          body.role,
       name:          String(body.name ?? '').slice(0, 100),
     }).select('id,username,role,name,created_at').single()
@@ -645,7 +682,8 @@ async function handleRequest(req, res) {
   if (userIdMatch && method === 'PATCH') {
     const caller = requireAdminOrStaff(req, res)
     if (!caller) return
-    const body = await parseBody(req)
+    const body = await parseBody(req, res)
+    if (body === null) return
     const updates = {}
     if (body.name     !== undefined) updates.name = String(body.name).slice(0, 100)
     if (body.role     !== undefined) {
@@ -654,9 +692,9 @@ async function handleRequest(req, res) {
       updates.role = body.role
     }
     if (body.password !== undefined) {
-      if (typeof body.password !== 'string' || body.password.length < 8)
-        return json(res, 400, { error: 'Password must be at least 8 characters' })
-      updates.password_hash = hashPassword(body.password)
+      if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 128)
+        return json(res, 400, { error: 'Password must be 8–128 characters' })
+      updates.password_hash = await hashPassword(body.password)
     }
     if (body.username !== undefined) {
       if (typeof body.username !== 'string' || body.username.length < 3 || body.username.length > 50)
