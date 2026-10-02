@@ -133,13 +133,10 @@ import { createHmac, pbkdf2, timingSafeEqual, randomBytes } from 'node:crypto'
 
 const TOKEN_SECRET = process.env.TOKEN_SECRET
 if (!TOKEN_SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[FATAL] TOKEN_SECRET env var must be set in production. Exiting.')
-    process.exit(1)
-  }
-  console.warn('[SECURITY] TOKEN_SECRET not set — using insecure default. DO NOT deploy without setting this.')
+  console.error('[FATAL] TOKEN_SECRET env var must be set. Exiting.')
+  process.exit(1)
 }
-const _SECRET = TOKEN_SECRET || 'cicte-dev-secret-change-me'
+const _SECRET = TOKEN_SECRET
 
 /**
  * Hash a password for storage using PBKDF2 with a random per-user salt.
@@ -312,13 +309,10 @@ function validateHeartbeat(hb) {
 
 const AGENT_KEY = process.env.AGENT_KEY
 if (!AGENT_KEY) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[FATAL] AGENT_KEY env var must be set in production. Exiting.')
-    process.exit(1)
-  }
-  console.warn('[SECURITY] AGENT_KEY env var is not set. Using insecure default — set it before deploying!')
+  console.error('[FATAL] AGENT_KEY env var must be set. Exiting.')
+  process.exit(1)
 }
-const _AGENT_KEY = AGENT_KEY || 'cicte-agent-2026'
+const _AGENT_KEY = AGENT_KEY
 const OFFLINE_TIMEOUT = 90_000  // 90 seconds without heartbeat → offline
 
 /**

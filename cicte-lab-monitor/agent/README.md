@@ -54,7 +54,7 @@ python agent.py
 | `CICTE_SERVER_URL` | `http://localhost:3001` | Monitoring server URL |
 | `CICTE_LAB_ID` | `cl1` | Lab ID (cl1-cl5, nl1, sl1, sl2, emc) |
 | `CICTE_PC_NUM` | *(auto)* | PC number; auto-detected from hostname |
-| `CICTE_AGENT_KEY` | `cicte-agent-2026` | Shared auth key |
+| `CICTE_AGENT_KEY` | required | Shared auth key configured by the server administrator |
 | `CICTE_INTERVAL` | `30` | Heartbeat interval in seconds |
 
 ## PC Number Auto-Detection
