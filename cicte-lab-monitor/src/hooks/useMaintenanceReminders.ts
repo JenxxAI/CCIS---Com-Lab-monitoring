@@ -20,7 +20,7 @@ export function useMaintenanceReminders() {
 
     const alreadyFired: string[] = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '[]')
     const now   = Date.now()
-    let updated = [...alreadyFired]
+    const updated = [...alreadyFired]
 
     events.forEach(ev => {
       if (ev.status !== 'scheduled' && ev.status !== 'in-progress') return

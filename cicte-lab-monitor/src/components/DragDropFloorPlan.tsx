@@ -73,7 +73,6 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
   // Marquee (rubber-band) selection
   const [marquee, setMarquee] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null)
   const marqueeRef = useRef(marquee)
-  marqueeRef.current = marquee
   const storeRef = useRef({ layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory })
 
   const accent     = dark ? '#5b7fff' : '#3a5cf5'
@@ -86,9 +85,11 @@ export function DragDropFloorPlan({ labId, labName, pcs, selectedPC, statusFilte
     [tickets]
   )
 
-  // Keep refs in sync every render
-  dragRef.current  = drag
-  storeRef.current = { layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory }
+  useEffect(() => {
+    marqueeRef.current = marquee
+    dragRef.current = drag
+    storeRef.current = { layouts, labId, pcs, initLayout, updatePCPosition, updateFurniturePosition, pushHistory }
+  }, [drag, initLayout, labId, layouts, marquee, pcs, pushHistory, updateFurniturePosition, updatePCPosition])
 
   /* ── Positions (merge saved + defaults) ──────────────────────────────── */
 

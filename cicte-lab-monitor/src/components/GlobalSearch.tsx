@@ -22,10 +22,12 @@ export function GlobalSearch({ open, onClose }: Props) {
 
   // Focus input when opened
   useEffect(() => {
-    if (open) {
+    if (!open) return
+    const timer = window.setTimeout(() => {
       setQuery('')
-      setTimeout(() => inputRef.current?.focus(), 50)
-    }
+      inputRef.current?.focus()
+    }, 50)
+    return () => window.clearTimeout(timer)
   }, [open])
 
   // Close on Escape

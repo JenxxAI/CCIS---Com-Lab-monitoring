@@ -154,8 +154,6 @@ export function UserManagementPage() {
   const { dark } = useThemeStore()
   const canManageUsers = useAuthStore(s => s.canManageUsers)
   const currentUser = useAuthStore(s => s.user)
-
-  if (!canManageUsers) return <Navigate to="/" replace />
   const { data: users = [], isLoading } = useUsers()
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
@@ -164,6 +162,8 @@ export function UserManagementPage() {
   const [showAdd, setShowAdd]             = useState(false)
   const [editUser, setEditUser]           = useState<AppUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<AppUser | null>(null)
+
+  if (!canManageUsers) return <Navigate to="/" replace />
 
   const accent = dark ? '#5b7fff' : '#3a5cf5'
 
