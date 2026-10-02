@@ -13,7 +13,11 @@ echo.
 :: ── Configuration (EDIT THESE) ──────────────────────────────────────
 set SERVER_URL=http://192.168.1.100:3001
 set LAB_ID=cl1
-set AGENT_KEY=cicte-agent-2026
+if "%CICTE_AGENT_KEY%"=="" (
+  echo Set CICTE_AGENT_KEY before running this installer.
+  exit /b 1
+)
+set AGENT_KEY=%CICTE_AGENT_KEY%
 
 :: ── Create install directory ────────────────────────────────────────
 set INSTALL_DIR=C:\CICTE

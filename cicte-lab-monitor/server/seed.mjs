@@ -7,8 +7,12 @@ import { pbkdf2Sync, randomBytes } from 'node:crypto'
 
 const SUPABASE_URL         = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error('[Seed] SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.')
+const ADMIN_USER           = process.env.ADMIN_USER
+const ADMIN_PASS           = process.env.ADMIN_PASS
+const VIEWER_USER          = process.env.VIEWER_USER
+const VIEWER_PASS          = process.env.VIEWER_PASS
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !ADMIN_USER || !ADMIN_PASS || !VIEWER_USER || !VIEWER_PASS) {
+  console.error('[Seed] SUPABASE_URL, SUPABASE_SERVICE_KEY, ADMIN_USER, ADMIN_PASS, VIEWER_USER, and VIEWER_PASS must be set.')
   process.exit(1)
 }
 
@@ -193,14 +197,14 @@ export async function seed() {
   // Only inserts if the username does not already exist. Safe to re-run.
   const SEED_USERS = [
     {
-      username: process.env.ADMIN_USER || 'admin',
-      password: process.env.ADMIN_PASS || 'Admin@CICTE2026!',
+      username: ADMIN_USER,
+      password: ADMIN_PASS,
       role:     'admin',
       name:     'Admin Ramos',
     },
     {
-      username: process.env.VIEWER_USER || 'viewer',
-      password: process.env.VIEWER_PASS || 'Viewer@CICTE2026!',
+      username: VIEWER_USER,
+      password: VIEWER_PASS,
       role:     'staff',
       name:     'Staff Dela Rosa',
     },

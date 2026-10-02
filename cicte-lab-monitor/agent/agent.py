@@ -32,8 +32,11 @@ from datetime import datetime
 SERVER_URL = os.environ.get("CICTE_SERVER_URL", "http://localhost:3001")
 LAB_ID     = os.environ.get("CICTE_LAB_ID", "cl1")       # Which lab this PC belongs to
 PC_NUMBER  = os.environ.get("CICTE_PC_NUM", "")           # PC number (auto-detected from hostname if empty)
-AGENT_KEY  = os.environ.get("CICTE_AGENT_KEY", "cicte-agent-2026")  # Shared secret for agent auth
+AGENT_KEY  = os.environ.get("CICTE_AGENT_KEY")                    # Shared secret for agent auth
 INTERVAL   = int(os.environ.get("CICTE_INTERVAL", "30"))  # Heartbeat interval in seconds
+
+if not AGENT_KEY:
+    raise SystemExit("CICTE_AGENT_KEY must be set")
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
