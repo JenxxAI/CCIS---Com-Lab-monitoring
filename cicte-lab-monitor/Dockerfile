@@ -3,7 +3,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 # Build frontend
 COPY . .
@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install only production dependencies (includes @supabase/supabase-js)
 COPY package.json package-lock.json* ./
-RUN npm ci --legacy-peer-deps --omit=dev
+RUN npm ci --omit=dev
 
 # Copy server and built frontend
 COPY server/ ./server/
