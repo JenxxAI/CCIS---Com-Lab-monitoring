@@ -235,7 +235,7 @@ export const useNotifStore = create<NotifStore>()(
             read:      false,
           },
           ...s.notifications,
-        ].slice(0, 100), // keep max 100
+        ].slice(0, 50), // keep max 50
       })),
       markRead: (id) => set(s => ({
         notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n),

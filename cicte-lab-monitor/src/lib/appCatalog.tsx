@@ -1,5 +1,4 @@
 import type { FC, SVGProps } from 'react'
-import { cn } from '@/lib/utils'
 
 // ─── App definition ──────────────────────────────────────────────────────────
 
@@ -12,26 +11,6 @@ export interface AppInfo {
   iconUrl?: string
   /** Fallback SVG component icon */
   icon?:    FC<SVGProps<SVGSVGElement>>
-}
-
-// ─── AppIcon helper – renders either <img> or <SVG> ─────────────────────────
-
-export function AppIcon({ app, className }: { app: AppInfo; className?: string }) {
-  if (app.iconUrl) {
-    return (
-      <img
-        src={app.iconUrl}
-        alt={app.name}
-        className={cn('object-contain', className)}
-        draggable={false}
-      />
-    )
-  }
-  if (app.icon) {
-    const Icon = app.icon
-    return <Icon className={className} />
-  }
-  return null
 }
 
 // ─── SVG fallback icons (for apps without uploaded images) ───────────────────

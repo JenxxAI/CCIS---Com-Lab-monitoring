@@ -89,7 +89,7 @@ describe('AuthStore', () => {
 
   it('login sets isAdmin false for non-admin role', () => {
     useAuthStore.getState().login('tok-2', {
-      id: 'u2', username: 'volunteer', role: 'volunteer', name: 'Volunteer',
+      id: 'u2', username: 'volunteer', role: 'student_volunteer', name: 'Volunteer',
     })
     expect(useAuthStore.getState().isAdmin).toBe(false)
   })

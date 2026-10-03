@@ -9,17 +9,18 @@ import { LABS } from '@/lib/data'
 import { COND_HEX, COND_META, downloadCSV } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Download, Printer } from 'lucide-react'
+import type { PC } from '@/types'
 
 // ─── Condition trend helpers ─────────────────────────────────────────────────
 // Generates 6-month simulated condition trend for the chart.
-function buildConditionTrend(allPCs: any[]) {
+function buildConditionTrend(allPCs: PC[]) {
   const months: Array<{ month: string; good: number; lagging: number; needs_repair: number; damaged: number }> = []
   const now = new Date()
   const curr = {
-    good:         allPCs.filter((p: any) => p.condition === 'good').length,
-    lagging:      allPCs.filter((p: any) => p.condition === 'lagging').length,
-    needs_repair: allPCs.filter((p: any) => p.condition === 'needs_repair').length,
-    damaged:      allPCs.filter((p: any) => p.condition === 'damaged').length,
+    good:         allPCs.filter(p => p.condition === 'good').length,
+    lagging:      allPCs.filter(p => p.condition === 'lagging').length,
+    needs_repair: allPCs.filter(p => p.condition === 'needs_repair').length,
+    damaged:      allPCs.filter(p => p.condition === 'damaged').length,
   }
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)

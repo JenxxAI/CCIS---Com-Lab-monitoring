@@ -44,4 +44,12 @@ export default tseslint.config(
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
+
+  // The catalog is data with private SVG renderers, not a Fast Refresh boundary.
+  {
+    files: ['src/lib/appCatalog.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 )

@@ -53,8 +53,6 @@ export function MaintenanceHub() {
   const { dark } = useThemeStore()
   const isStudent = useAuthStore(s => s.user?.role === 'student')
   const [activeTab, setActiveTab] = useState<SubTab>('tickets')
-
-  if (isStudent) return <Navigate to="/" replace />
   const tickets = useTicketStore(s => s.tickets)
   const scheduleEvents = useScheduleStore(s => s.events)
   const parts = useInventoryStore(s => s.parts)
@@ -62,6 +60,7 @@ export function MaintenanceHub() {
 
   // Seed mock data if stores are empty
   useEffect(() => {
+    if (isStudent) return
     if (tickets.length === 0) {
       useTicketStore.getState().setTickets(generateMockTickets())
     }
@@ -84,8 +83,9 @@ export function MaintenanceHub() {
     if (activities.length === 0) {
       useActivityStore.getState().setEvents(generateMockActivity())
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activities.length, isStudent, parts.length, scheduleEvents.length, tickets.length])
+
+  if (isStudent) return <Navigate to="/" replace />
 
   const accent = dark ? '#5b7fff' : '#3a5cf5'
 
