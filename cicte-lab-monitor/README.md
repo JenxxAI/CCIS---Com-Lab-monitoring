@@ -120,3 +120,18 @@ have not been implemented; lab and PC monitoring use the API.
 
 The current project passes ESLint, 43 Vitest tests, the TypeScript/Vite
 production build, and the high-severity npm audit threshold.
+
+## Demo deployment (Vercel)
+
+A front-end-only demo can be hosted with no backend, database, or secrets. It is
+built with `VITE_DEMO_MODE=true`, which serves in-memory mock data
+(`src/demo/mockApi.ts`); any login succeeds and data resets on reload. Never use
+this mode for a real deployment.
+
+1. In Vercel, import the repository and set **Root Directory** to `cicte-lab-monitor`.
+2. Leave the build settings alone: `vercel.json` sets the build command, output
+   directory, SPA rewrite, and `VITE_DEMO_MODE=true`.
+3. Demo logins: username `admin`, `staff`, `student`, or one starting with `vol`
+   (volunteer) selects the role; the password can be anything.
+
+Local preview: `VITE_DEMO_MODE=true npm run dev`.
