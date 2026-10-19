@@ -22,3 +22,8 @@ export const env = {
   /** Socket.io URL — undefined when not set (disables real-time). */
   socketUrl: optionalUrl('VITE_SOCKET_URL'),
 } as const
+
+/** Resolve every API request against the configured backend, without double slashes. */
+export function apiUrl(path: string): string {
+  return `${env.apiUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}

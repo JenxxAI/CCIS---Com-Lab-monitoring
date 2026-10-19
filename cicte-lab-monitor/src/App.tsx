@@ -10,7 +10,7 @@ import { AddPCDialog } from '@/components/AddPCDialog'
 import { LoginPage } from '@/pages/LoginPage'
 import { useThemeStore, useLabStore, useAuthStore, useLayoutStore } from '@/store'
 import { useSocket } from '@/hooks/useSocket'
-import { useHeartbeatSimulation } from '@/hooks/useHeartbeat'
+import { useHeartbeatPolling } from '@/hooks/useHeartbeat'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useMaintenanceReminders } from '@/hooks/useMaintenanceReminders'
 import { GlobalSearch } from '@/components/GlobalSearch'
@@ -195,9 +195,9 @@ export function AppShell() {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
 
-  // Start socket connection and heartbeat simulation
+  // Start socket connection and heartbeat polling
   useSocket()
-  useHeartbeatSimulation()
+  useHeartbeatPolling()
   useKeyboardShortcuts()
   useMaintenanceReminders()
 

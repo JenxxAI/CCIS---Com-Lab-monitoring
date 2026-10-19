@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { CheckSquare, X, Monitor, Wrench, AlertTriangle, ChevronDown } from 'lucide-react'
 import { useLabStore, useThemeStore, useAuthStore } from '@/store'
 import { cn } from '@/lib/utils'
 import { STATUS_META, COND_META } from '@/lib/utils'
 import { toast } from '@/store/toast'
+import { useUpdatePC } from '@/hooks/useApi'
 import { logActivity } from '@/store/activity'
 import type { PCStatus, PCCondition } from '@/types'
 
@@ -14,7 +15,7 @@ export function BatchActionsBar() {
   const { dark } = useThemeStore()
   const isAdmin = useAuthStore(s => s.isAdmin)
   const {
-    selectedPCIds, clearSelection, batchUpdateStatus, batchUpdateCondition,
+    selectedPCIds, clearSelection,
     labData, activeLab,
   } = useLabStore()
   const user = useAuthStore(s => s.user)
@@ -26,6 +27,10 @@ export function BatchActionsBar() {
     value: PCStatus | PCCondition
     label: string
   } | null>(null)
+
+  const mutation = useUpdatePC()
+  const running = useRef(false)
+  const [pending, setPending] = useState(false)
 
   const count = selectedPCIds.size
   if (count === 0 || !isAdmin) return null
@@ -40,39 +45,37 @@ export function BatchActionsBar() {
     setConfirmAction({ type: 'condition', value: condition, label: COND_META[condition].label })
   }
 
-  const executeAction = () => {
-    if (!confirmAction) return
-    const pcs = labData[activeLab] ?? []
-    const affected = pcs.filter(p => selectedPCIds.has(p.id))
-
-    if (confirmAction.type === 'status') {
-      batchUpdateStatus(confirmAction.value as PCStatus)
-      affected.forEach(pc => {
+  const executeAction = async () => {
+    if (!confirmAction || running.current) return
+    running.current = true
+    setPending(true)
+    const affected = (labData[activeLab] ?? []).filter(p => selectedPCIds.has(p.id))
+    const failed = new Set<string>()
+    for (const pc of affected) {
+      try {
+        const changes = confirmAction.type === 'status'
+          ? { status: confirmAction.value as PCStatus }
+          : { condition: confirmAction.value as PCCondition }
+        await mutation.mutateAsync({ id: pc.id, labId: pc.labId, ...changes })
         logActivity({
-          pcId: pc.id,
-          labId: pc.labId,
-          type: 'status-change',
-          title: `Status → ${confirmAction.label} (batch)`,
-          description: `Batch operation: ${count} PCs updated`,
-          performedBy: user?.name ?? 'Unknown',
+          pcId: pc.id, labId: pc.labId,
+          type: confirmAction.type === 'status' ? 'status-change' : 'condition-change',
+          title: `${confirmAction.type} → ${confirmAction.label} (batch)`,
+          description: 'Saved to the server', performedBy: user?.name ?? 'Unknown',
         })
-      })
-      toast.success(`${count} PC${count > 1 ? 's' : ''} → ${confirmAction.label}`)
-    } else {
-      batchUpdateCondition(confirmAction.value as PCCondition)
-      affected.forEach(pc => {
-        logActivity({
-          pcId: pc.id,
-          labId: pc.labId,
-          type: 'condition-change',
-          title: `Condition → ${confirmAction.label} (batch)`,
-          description: `Batch operation: ${count} PCs updated`,
-          performedBy: user?.name ?? 'Unknown',
-        })
-      })
-      toast.success(`${count} PC${count > 1 ? 's' : ''} → ${confirmAction.label}`)
+      } catch {
+        failed.add(pc.id)
+      }
     }
-    setConfirmAction(null)
+    if (useLabStore.getState().activeLab === activeLab) {
+      useLabStore.setState({ selectedPCIds: failed })
+    }
+    const saved = affected.length - failed.size
+    if (saved) toast.success(`${saved} PC${saved > 1 ? 's' : ''} updated`)
+    if (failed.size) toast.error(`${failed.size} PC${failed.size > 1 ? 's' : ''} could not be saved. Select Apply to retry.`)
+    else setConfirmAction(null)
+    running.current = false
+    setPending(false)
   }
 
   const accent = dark ? '#5b7fff' : '#3a5cf5'
@@ -100,6 +103,7 @@ export function BatchActionsBar() {
         {/* Status dropdown */}
         <div className="relative">
           <button
+            disabled={pending}
             onClick={() => { setShowStatusMenu(o => !o); setShowCondMenu(false) }}
             className={cn(
               'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors',
@@ -122,6 +126,7 @@ export function BatchActionsBar() {
                 const meta = STATUS_META[st]
                 return (
                   <button
+            disabled={pending}
                     key={st}
                     onClick={() => handleStatusChange(st)}
                     className={cn(
@@ -141,6 +146,7 @@ export function BatchActionsBar() {
         {/* Condition dropdown */}
         <div className="relative">
           <button
+            disabled={pending}
             onClick={() => { setShowCondMenu(o => !o); setShowStatusMenu(false) }}
             className={cn(
               'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors',
@@ -163,6 +169,7 @@ export function BatchActionsBar() {
                 const meta = COND_META[c]
                 return (
                   <button
+            disabled={pending}
                     key={c}
                     onClick={() => handleConditionChange(c)}
                     className={cn(
@@ -183,6 +190,7 @@ export function BatchActionsBar() {
 
         {/* Clear */}
         <button
+            disabled={pending}
           onClick={clearSelection}
           className={cn(
             'p-1.5 rounded-lg transition-colors',
@@ -215,6 +223,7 @@ export function BatchActionsBar() {
 
             <div className="flex justify-end gap-2">
               <button
+            disabled={pending}
                 onClick={() => setConfirmAction(null)}
                 className={cn(
                   'px-4 py-2 rounded-lg text-[12px] font-medium border transition-colors',
@@ -224,11 +233,12 @@ export function BatchActionsBar() {
                 Cancel
               </button>
               <button
+            disabled={pending}
                 onClick={executeAction}
                 className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white transition-colors"
                 style={{ backgroundColor: accent }}
               >
-                Apply to {count} PC{count > 1 ? 's' : ''}
+                {pending ? 'Saving…' : `Apply to ${count} PC${count > 1 ? 's' : ''}`}
               </button>
             </div>
           </div>
