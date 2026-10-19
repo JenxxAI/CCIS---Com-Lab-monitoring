@@ -3,6 +3,8 @@
 A React and Supabase dashboard for monitoring lab workstations, PC condition,
 repairs, schedules, users, and agent heartbeats.
 
+Requires Node.js 22.12 or newer.
+
 ## Quick Start
 
 ```bash
@@ -31,7 +33,15 @@ There are no default secrets or default user passwords. Apply the SQL in
 npm run seed
 ```
 
-Run the API and frontend separately:
+The server and seeder load `.env` automatically. Seeding upserts sample PC records and can overwrite existing data; run it only when initializing a demonstration database.
+
+Start both services without reseeding:
+
+```bash
+npm run dev:full
+```
+
+Or run the API and frontend separately:
 
 ```bash
 # Terminal 1
@@ -56,6 +66,7 @@ API on port 3001.
 
 | Command | Purpose |
 | --- | --- |
+| `npm run dev:full` | Start API and frontend together without reseeding |
 | `npm run dev` | Start the Vite development server |
 | `npm run server` | Start the Node API server |
 | `npm run seed` | Upsert labs, PCs, and explicitly configured seed users |
@@ -118,5 +129,6 @@ have not been implemented; lab and PC monitoring use the API.
 
 ## Verification
 
-The current project passes ESLint, 43 Vitest tests, the TypeScript/Vite
-production build, and the high-severity npm audit threshold.
+PC edits now wait for API confirmation before reporting success. Batch edits report partial failures and retain failed selections for retry. Polling refreshes the active lab and selected PC every 15 seconds after login, without synthetic heartbeats.
+
+Run lint, tests, and the production build using the commands above. Live Supabase round-trip verification still requires configured credentials. Generated analytics history and browser-local maintenance features remain outside the persistence changes.

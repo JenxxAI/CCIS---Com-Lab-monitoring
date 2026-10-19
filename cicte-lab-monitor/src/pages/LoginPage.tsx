@@ -3,6 +3,7 @@ import { Eye, EyeOff, Wifi, WifiOff } from 'lucide-react'
 import { useAuthStore, useThemeStore } from '@/store'
 import type { UserRole } from '@/store'
 import { cn } from '@/lib/utils'
+import { apiUrl } from '@/lib/env'
 import { toast } from '@/store/toast'
 
 const MAX_ATTEMPTS   = 3
@@ -86,7 +87,7 @@ export function LoginPage() {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) })
+        const res = await fetch(apiUrl('/api/health'), { signal: AbortSignal.timeout(3000) })
         setApiStatus(res.ok ? 'online' : 'offline')
       } catch {
         setApiStatus('offline')
@@ -127,7 +128,7 @@ export function LoginPage() {
     }
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

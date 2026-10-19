@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { PC, ViewTab, StatusFilter, ConditionFilter, Notification, Position, FurnitureItem, PCStatus, PCCondition } from '@/types'
+import { apiUrl } from '@/lib/env'
 import { generateAllLabData } from '@/lib/data'
 
 // ─── UI / Theme Store ─────────────────────────────────────────────────────────
@@ -149,6 +150,7 @@ export const useLabStore = create<LabStore>()((set, get) => ({
 
   setLabPCs: (labId, pcs) => set(s => ({
     labData: { ...s.labData, [labId]: pcs },
+    selectedPC: s.selectedPC?.labId === labId ? pcs.find(pc => pc.id === s.selectedPC?.id) ?? null : s.selectedPC,
   })),
 
   loadLabData: async (labId) => {
@@ -158,10 +160,11 @@ export const useLabStore = create<LabStore>()((set, get) => ({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      const res = await fetch(`/api/labs/${labId}/pcs`, { headers })
+      const res = await fetch(apiUrl(`/api/labs/${labId}/pcs`), { headers })
       if (res.ok) {
         const pcs: PC[] = await res.json()
-        set(s => ({ labData: { ...s.labData, [labId]: pcs }, isLoading: false }))
+        get().setLabPCs(labId, pcs)
+        set({ isLoading: false })
       } else {
         set({ isLoading: false })
       }

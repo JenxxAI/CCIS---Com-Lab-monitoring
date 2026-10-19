@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:full": "node server/seed.mjs && node server/index.mjs & vite",
-    "server": "node server/index.mjs",
-    "seed": "node server/seed.mjs",
+    "dev:full": "node scripts/dev.mjs",
+    "server": "node --env-file-if-exists=.env server/index.mjs",
+    "seed": "node --env-file-if-exists=.env server/seed.mjs",
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -47,5 +47,8 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.3.2",
     "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

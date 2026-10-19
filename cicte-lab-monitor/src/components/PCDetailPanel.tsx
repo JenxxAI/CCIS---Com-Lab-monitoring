@@ -1,5 +1,5 @@
 import { X, Monitor, Cpu, Wifi, Shield, Clock, Wrench, Package, ChevronDown, Plus, Check, Ticket, Activity, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Badge } from './Badge'
 import { STATUS_HEX, STATUS_BG_HEX, COND_HEX } from '@/lib/utils'
 import { STATUS_META, COND_META } from '@/lib/utils'
@@ -14,8 +14,8 @@ import { CreateTicketDialog } from './CreateTicketDialog'
 import { ActivityTimeline } from './ActivityTimeline'
 import { useTicketStore, PRIORITY_META, TICKET_STATUS_META } from '@/store/tickets'
 import { logActivity } from '@/store/activity'
-import { useDeletePC } from '@/hooks/useApi'
-import type { PCStatus, PCCondition } from '@/types'
+import { useDeletePC, useUpdatePC } from '@/hooks/useApi'
+import type { PC, PCStatus, PCCondition } from '@/types'
 
 function KV({ label, value, mono = false }: {
   label: string; value: string; mono?: boolean
@@ -54,7 +54,7 @@ function SectionHead({ title, icon }: { title: string; icon?: React.ReactNode })
 }
 
 export function PCDetailPanel() {
-  const { selectedPC, setSelectedPC, activeLab, updatePC } = useLabStore()
+  const { selectedPC, setSelectedPC, activeLab } = useLabStore()
   const { dark } = useThemeStore()
   const isAdmin    = useAuthStore(s => s.isAdmin)
   const canManage  = useAuthStore(s => s.canManage)
@@ -70,6 +70,21 @@ export function PCDetailPanel() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const deletePC = useDeletePC()
+  const mutation = useUpdatePC()
+  const saving = useRef(false)
+  const savePC = async (changes: Partial<PC>) => {
+    if (!selectedPC || saving.current) return false
+    saving.current = true
+    try {
+      await mutation.mutateAsync({ id: selectedPC.id, labId: selectedPC.labId, ...changes })
+      return true
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save PC changes')
+      return false
+    } finally {
+      saving.current = false
+    }
+  }
   const tickets = useTicketStore(s => s.tickets)
   const pcTickets = tickets.filter(t => t.pcId === selectedPC?.id)
 
@@ -79,8 +94,8 @@ export function PCDetailPanel() {
   const cc = COND_META[selectedPC.condition]
   const accent = dark ? '#5b7fff' : '#3a5cf5'
 
-  const changeStatus = (status: PCStatus) => {
-    updatePC({ ...selectedPC, status })
+  const changeStatus = async (status: PCStatus) => {
+    if (!await savePC({ status })) return
     setShowStatusPicker(false)
     toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} → ${STATUS_META[status].label}`)
     logActivity({
@@ -93,8 +108,8 @@ export function PCDetailPanel() {
     })
   }
 
-  const changeCondition = (condition: PCCondition) => {
-    updatePC({ ...selectedPC, condition })
+  const changeCondition = async (condition: PCCondition) => {
+    if (!await savePC({ condition })) return
     setShowCondPicker(false)
     toast.success(`PC-${String(selectedPC.num).padStart(2, '0')} → ${COND_META[condition].label}`)
     logActivity({
@@ -117,7 +132,7 @@ export function PCDetailPanel() {
           : 'bg-white border-slate-200'
       )}
     >
-      <div className="p-4 sm:p-5">
+      <fieldset disabled={mutation.isPending || deletePC.isPending} className="p-4 sm:p-5 min-w-0">
         {/* Header */}
         <div className="flex justify-between items-start mb-3">
           <div>
@@ -305,9 +320,9 @@ export function PCDetailPanel() {
                 </span>
                 {canManage && (
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const next = selectedPC.installedApps.filter(id => id !== appId)
-                      updatePC({ ...selectedPC, installedApps: next })
+                      if (!await savePC({ installedApps: next })) return
                       toast.info(`Removed ${app.name}`)
                     }}
                     className={cn(
@@ -360,13 +375,13 @@ export function PCDetailPanel() {
                     return (
                       <button
                         key={app.id}
-                        onClick={() => {
+                        onClick={async () => {
                           if (installed) {
                             const next = selectedPC.installedApps.filter(id => id !== app.id)
-                            updatePC({ ...selectedPC, installedApps: next })
+                            if (!await savePC({ installedApps: next })) return
                             toast.info(`Removed ${app.name}`)
                           } else {
-                            updatePC({ ...selectedPC, installedApps: [...selectedPC.installedApps, app.id] })
+                            if (!await savePC({ installedApps: [...selectedPC.installedApps, app.id] })) return
                             toast.success(`Added ${app.name}`)
                           }
                         }}
@@ -433,9 +448,9 @@ export function PCDetailPanel() {
                 />
                 <button
                   disabled={!newPass.trim()}
-                  onClick={() => {
+                  onClick={async () => {
                     const today = new Date().toISOString().split('T')[0]
-                    updatePC({ ...selectedPC, password: newPass.trim(), lastPasswordChange: today, lastPasswordChangedBy: user?.name ?? 'Admin' })
+                    if (!await savePC({ password: newPass.trim(), lastPasswordChange: today, lastPasswordChangedBy: user?.name ?? 'Admin' })) return
                     logActivity({ pcId: selectedPC.id, labId: selectedPC.labId, type: 'password-change', title: 'Password Changed', description: `Password changed by ${user?.name ?? 'Admin'}`, performedBy: user?.name ?? 'Admin' })
                     toast.success('Password updated')
                     setShowPassForm(false)
@@ -596,7 +611,7 @@ export function PCDetailPanel() {
             </div>
           </div>
         </div>
-      </div>
+      </fieldset>
 
       {/* Ticket creation dialog */}
       {selectedPC && (

@@ -1,10 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { PC, Lab, RepairLog } from '@/types'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useLabStore } from '@/store'
 import type { AuthUser, UserRole } from '@/store'
-import { env } from '@/lib/env'
-
-const BASE = env.apiUrl
+import { apiUrl } from '@/lib/env'
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
@@ -13,7 +11,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${BASE}${path}`, { headers, ...init })
+  const res = await fetch(apiUrl(path), { headers, ...init })
 
   if (res.status === 401) {
     useAuthStore.getState().logout()
@@ -79,6 +77,9 @@ export function useUpdatePC() {
         body:   JSON.stringify(pc),
       }),
     onSuccess: (updated) => {
+      const store = useLabStore.getState()
+      const previous = store.labData[updated.labId]?.find(pc => pc.id === updated.id)
+      store.updatePC({ ...previous, ...updated })
       qc.setQueryData<PC[]>(qk.labPCs(updated.labId), old =>
         old?.map(p => p.id === updated.id ? updated : p) ?? [updated]
       )
@@ -93,6 +94,8 @@ export function useAddPC() {
     mutationFn: (payload: { labId: string; num: number; [key: string]: unknown }) =>
       apiFetch<PC>('/api/pcs', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: (newPC) => {
+      const store = useLabStore.getState()
+      store.setLabPCs(newPC.labId, [...(store.labData[newPC.labId] ?? []).filter(pc => pc.id !== newPC.id), newPC])
       qc.setQueryData<PC[]>(qk.labPCs(newPC.labId), old => [...(old ?? []), newPC])
       qc.invalidateQueries({ queryKey: qk.labPCs(newPC.labId) })
     },
@@ -106,6 +109,8 @@ export function useDeletePC() {
     mutationFn: ({ id }: { id: string; labId: string }) =>
       apiFetch<{ ok: boolean }>(`/api/pcs/${id}`, { method: 'DELETE' }),
     onSuccess: (_, { id, labId }) => {
+      const store = useLabStore.getState()
+      store.setLabPCs(labId, (store.labData[labId] ?? []).filter(pc => pc.id !== id))
       qc.setQueryData<PC[]>(qk.labPCs(labId), old => old?.filter(p => p.id !== id) ?? [])
     },
   })
@@ -123,6 +128,9 @@ export function useLogRepair() {
         body:   JSON.stringify(repair),
       }),
     onSuccess: (updated) => {
+      const store = useLabStore.getState()
+      const previous = store.labData[updated.labId]?.find(pc => pc.id === updated.id)
+      store.updatePC({ ...previous, ...updated })
       qc.setQueryData<PC[]>(qk.labPCs(updated.labId), old =>
         old?.map(p => p.id === updated.id ? updated : p) ?? [updated]
       )
